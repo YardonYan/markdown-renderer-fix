@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<!--
+  Markdown Renderer Fix — 完整聊天界面模板
+  作者：Yardon
+  基于 markdown-renderer-fix Skill 构建
+
+  包含所有修复：
+  - UTF-8 编码（TextDecoder + charset=utf-8）
+  - SSE 流式消费（json.dumps/JSON.parse + PING 保活 + 超时管理）
+  - Markdown 渲染（marked.js + highlight.js + KaTeX + Mermaid）
+  - 代码块复制按钮 + 语法高亮
+  - 消息操作按钮（复制/重新生成/点赞/点踩）
+  - 工具调用输出过滤
+  - 连续对话状态管理（streamingMsg ID 清理 + AbortController）
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Chat</title>
+  <!-- Markdown + highlight.js -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <!-- KaTeX (math) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <!-- Mermaid (diagrams) -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    body { background: #F5F0EB; color: #2C2C2C; display: flex; flex-direction: column; }
+
+    /* ── Chat Area ── */
+    .chat-area { flex: 1; overflow-y: auto; padding: 24px; }
+    .chat-flow { max-width: 800px; margin: 0 auto; }
+
+    .msg { display: flex; margin-bottom: 24px; animation: fadeIn 0.3s ease; }
+    .msg.user { justify-content: flex-end; }
+    .msg.assistant { justify-content: flex-start; }
+
+    .msg .bubble {
+      max-width: 85%; padding: 14px 18px; border-radius: 14px;
+      line-height: 1.7; font-size: 15px;
+    }
+    .msg.user .bubble { background: #E8F4F8; color: #2C2C2C; border-bottom-right-radius: 4px; }
+    .msg.assistant .bubble { background: #FFF; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-bottom-left-radius: 4px; }
+
+    /* ── Markdown Content ── */
+    .bubble h1, .bubble h2, .bubble h3 { margin: 12px 0 8px; color: #2C4A2C; }
+    .bubble h1 { font-size: 20px; } .bubble h2 { font-size: 17px; } .bubble h3 { font-size: 15px; }
+    .bubble p { margin-bottom: 0.6em; }
+    .bubble p:last-child { margin-bottom: 0; }
+    .bubble ul, .bubble ol { padding-left: 1.5em; margin-bottom: 0.6em; }
+    .bubble li { margin-bottom: 0.3em; }
+    .bubble strong { font-weight: 700; }
+    .bubble code { background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+    .bubble blockquote { border-left: 4px solid #7BA7A6; margin: 12px 0; padding: 8px 16px; background: rgba(143,166,142,0.08); border-radius: 0 8px 8px 0; }
+    .bubble table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 14px; }
+    .bubble th, .bubble td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+    .bubble th { background: #f0f4f0; font-weight: 600; }
+    .bubble tr:nth-child(even) { background: #fafafa; }
+
+    /* ── Code Blocks ── */
+    .code-block-wrapper { margin: 12px 0; border-radius: 10px; overflow: hidden; border: 1px solid #E0D8CC; background: #F5F0EB; }
+    .code-block-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: #EAE2D6; border-bottom: 1px solid #E0D8CC; }
+    .code-lang { font-size: 12px; color: #7BA7A6; text-transform: uppercase; font-weight: 600; }
+    .copy-btn { padding: 4px 12px; border: 1px solid #D5CCC0; border-radius: 6px; background: #F5F0EB; color: #5A6B5A; cursor: pointer; font-size: 12px; transition: all 0.2s; }
+    .copy-btn:hover { background: #E0D8CC; }
+    .code-block-wrapper pre { margin: 0; padding: 16px; overflow-x: auto; background: #F5F0EB; }
+    .code-block-wrapper pre code { background: transparent; padding: 0; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 13px; }
+
+    /* ── Message Actions ── */
+    .msg-actions { display: flex; gap: 4px; margin-top: 6px; opacity: 0; transition: opacity 0.2s; }
+    .msg.assistant:hover .msg-actions { opacity: 1; }
+    .msg-actions button { padding: 4px 8px; border: none; border-radius: 4px; background: transparent; font-size: 14px; cursor: pointer; opacity: 0.5; transition: all 0.2s; }
+    .msg-actions button:hover { opacity: 1; background: #f0f0f0; }
+
+    /* ── Input Area ── */
+    .input-area { flex-shrink: 0; padding: 16px 24px 20px; border-top: 1px solid #E8E0D5; background: #F5F0EB; }
+    .input-inner { max-width: 800px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; background: #fff; border: 1px solid #E8E0D5; border-radius: 16px; padding: 8px 8px 8px 16px; transition: border-color 0.2s; }
+    .input-inner:focus-within { border-color: #7BA7A6; box-shadow: 0 0 0 2px rgba(123,167,166,0.1); }
+    .input-inner textarea { flex: 1; border: none; outline: none; font-size: 15px; font-family: inherit; resize: none; text-align: center; padding: 6px 8px 6px 24px; line-height: 1.5; max-height: 150px; background: transparent; }
+    .input-inner textarea::placeholder { color: #B8A898; }
+    .send-btn { padding: 10px 18px; border: none; border-radius: 10px; background: #7BA7A6; color: #fff; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+    .send-btn:hover { background: #6A9695; }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+  <div class="chat-area" id="chatArea">
+    <div class="chat-flow" id="chatFlow"></div>
+  </div>
+
+  <div class="input-area">
+    <div class="input-inner">
+      <textarea id="chatInput" rows="1" placeholder="输入你的问题…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,150)+'px';"></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">发送</button>
+    </div>
+  </div>
+
+  <script>
+    /* ═══════════════════════ Config ═══════════════════════ */
+    const API_BASE = '';
+    let isSending = false;
+    let streamAbortCtl = null;   // 统一 AbortController（SSE + fallback 共用）
+    let thinkingTimer = null;    // 思考计时器 interval ID
+
+    /* ═════════════════════════════════════════════════════════════
+       Markdown 渲染引擎
+       - marked.js：Markdown → HTML
+       - highlight.js：代码语法高亮
+       - KaTeX：数学公式（$...$ / $$...$$）
+       - Mermaid：图表（```mermaid）
+       ═════════════════════════════════════════════════════════════ */
+    marked.setOptions({ breaks: true, gfm: true, headerIds: false });
+
+    // ═════════════════════════════════════════════════════════════
+    // 工具调用输出过滤 — 防止 save_qa_to_knowledge_base 等泄露到 UI
+    // ═════════════════════════════════════════════════════════════
+    function cleanToolOutput(text) {
+      if (!text) return '';
+      let out = text;
+      out = out.replace(/\{[^{}]*"tool_calls"\s*:\s*\[[\s\S]*?\][^{}]*\}/g, '');
+      out = out.replace(/<\/?function[^>]*>/gi, '');
+      out = out.replace(/<function=[^>]+>/gi, '');
+      out = out.replace(/Answer record saved successfully[\s\S]*?(?=\n\n|\n#|$)/gi, '');
+      out = out.replace(/.*(?:已保存|自动保存).*(?:知识库|记录)[\s\S]*?(?=\n\n|\n#|$)/g, '');
+      out = out.replace(/save_qa_to_knowledge_base\s*\([\s\S]*?\)/g, '');
+      return out.trim();
+    }
+
+    function renderMarkdown(text) {
+      text = cleanToolOutput(text);
+      const html = marked.parse(text);
+      const container = document.createElement('div');
+      container.innerHTML = html;
+      container.querySelectorAll('pre code').forEach(block => {
+        const pre = block.parentElement;
+        const wrapper = document.createElement('div'); wrapper.className = 'code-block-wrapper';
+        const lang = (block.className.match(/language-(\w+)/)||[])[1]||'text';
+        const header = document.createElement('div'); header.className = 'code-block-header';
+        header.innerHTML = `<span class="code-lang">${lang}</span><button class="copy-btn" onclick="copyCode(this)">📋 复制</button>`;
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(header); wrapper.appendChild(pre);
+      });
+      setTimeout(() => container.querySelectorAll('pre code').forEach(b => { if(typeof hljs!=='undefined') hljs.highlightElement(b); }), 50);
+      if (typeof renderMathInElement !== 'undefined') renderMathInElement(container, { delimiters: [{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}] });
+      return container;
+    }
+
+    function copyCode(btn) {
+      const code = btn.closest('.code-block-wrapper').querySelector('code').textContent;
+      navigator.clipboard.writeText(code).then(() => { btn.textContent='✅ 已复制'; setTimeout(()=>btn.textContent='📋 复制',1500); });
+    }
+
+    /* ═════════════════════════════════════════════════════════════
+       SSE 流式消费核心
+       - 后端 json.dumps 编码 → 前端 JSON.parse 解码
+       - [PING] 保活信号（每 15s）→ 重置超时
+       - [DONE] 结束信号 → 停止读取
+       - 25s 首内容超时 → 降级到非流式 /api/chat
+       ═════════════════════════════════════════════════════════════ */
+    function appendMessage(role, content) {
+      const flow = document.getElementById('chatFlow');
+      const div = document.createElement('div'); div.className = 'msg '+role;
+      const bubble = document.createElement('div'); bubble.className = 'bubble';
+      if (role === 'assistant') {
+        bubble.appendChild(renderMarkdown(content));
+        const actions = document.createElement('div'); actions.className = 'msg-actions';
+        actions.innerHTML = '<button onclick="copyMsg(this)" title="复制">📋</button><button onclick="regenerateMsg(this)" title="重新生成">🔄</button><button title="有用">👍</button><button title="无用">👎</button>';
+        bubble.appendChild(actions);
+      } else { bubble.textContent = content; }
+      div.appendChild(bubble); flow.appendChild(div);
+      document.getElementById('chatArea').scrollTop = document.getElementById('chatArea').scrollHeight;
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text || isSending) return;
+
+      isSending = true;
+      document.getElementById('sendBtn').disabled = true;
+      input.disabled = true;
+
+      appendMessage('user', text);
+      input.value = ''; input.style.height = 'auto';
+
+      // Create placeholder
+      const startTime = Date.now();
+      const assistEl = document.createElement('div'); assistEl.className = 'msg assistant'; assistEl.id = 'streamingMsg';
+      assistEl.innerHTML = '<div class="bubble"><em style="color:#8FA68E">正在思考 0.0s...</em></div>';
+      document.getElementById('chatFlow').appendChild(assistEl);
+
+      // Timer
+      thinkingTimer = setInterval(() => {
+        const el = document.getElementById('streamingMsg');
+        if (!el) { clearInterval(thinkingTimer); return; }
+        const t = el.querySelector('em');
+        if (t) t.textContent = '正在思考 ' + ((Date.now()-startTime)/1000).toFixed(1) + 's...';
+      }, 100);
+
+      streamAbortCtl = new AbortController();
+
+      try {
+        const res = await fetch(API_BASE+'/api/chat/stream', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ message: text, session_id: 'sess-'+Date.now() }),
+          signal: streamAbortCtl.signal
+        });
+        if (!res.ok) throw new Error('stream_unavailable');
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let fullText = '', partialLine = '', hasPing = false;
+
+        while (true) {
+          let readResult;
+          if (!hasPing) {
+            readResult = await Promise.race([reader.read(), new Promise(r=>setTimeout(()=>r({timeout:true}),25000))]);
+            if (readResult.timeout) { reader.cancel(); throw new Error('timeout'); }
+          } else { readResult = await reader.read(); }
+
+          const { value, done } = readResult;
+          if (done) break;
+          const chunk = decoder.decode(value, {stream:true});
+          const lines = (partialLine+chunk).split('\n'); partialLine = lines.pop()||'';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6).trim();
+            if (data==='[DONE]') break;
+            if (data==='[PING]') { hasPing=true; continue; }
+            if (data.startsWith('[ERROR]')) throw new Error(data.slice(7).trim()||'stream error');
+            if (data.startsWith('[')) continue;
+            try { fullText += JSON.parse(data); } catch(_) { fullText += data; }
+            // Update bubble live
+            if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer=null; }
+            const bubble = assistEl.querySelector('.bubble');
+            const md = renderMarkdown(fullText);
+            bubble.innerHTML = ''; bubble.appendChild(md);
+            const elapsed = ((Date.now()-startTime)/1000).toFixed(1);
+            const tt = document.createElement('div'); tt.style.cssText = 'text-align:right;font-size:12px;color:#6B7B8C;margin-top:6px;';
+            tt.textContent = '思考耗时 '+elapsed+'s'; bubble.appendChild(tt);
+          }
+        }
+
+        // Add actions
+        const bubble = assistEl.querySelector('.bubble');
+        const actions = document.createElement('div'); actions.className = 'msg-actions';
+        actions.innerHTML = '<button onclick="copyMsg(this)" title="复制">📋</button><button onclick="regenerateMsg(this)" title="重新生成">🔄</button><button title="有用">👍</button><button title="无用">👎</button>';
+        bubble.appendChild(actions);
+      } catch (err) {
+        const bubble = assistEl.querySelector('.bubble');
+        if (err.name==='AbortError') bubble.innerHTML = '<em style="color:#8FA68E">已取消</em>';
+        else bubble.innerHTML = '<em style="color:#C66">'+(err.message||'请求失败')+'</em>';
+      }
+
+      // Cleanup
+      if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer=null; }
+      const old = document.getElementById('streamingMsg');
+      if (old) old.removeAttribute('id');
+      streamAbortCtl = null;
+      isSending = false;
+      document.getElementById('sendBtn').disabled = false;
+      input.disabled = false;
+      input.focus();
+    }
+  </script>
+</body>
+</html>

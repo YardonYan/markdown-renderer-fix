@@ -1,42 +1,47 @@
-# 前端 SSE 消费指南
+# 前端 SSE 消费指南 / Frontend SSE Consumption Guide
+
+> 🇬🇧 EN: SSE EventSource/fetch consumption, timeout handling, reconnection, TextDecoder stream mode.
+> 🇨🇳 ZH: SSE EventSource/fetch 消费、超时处理、断线重连、TextDecoder 流模式。
+
 
 > 作者：Yardon | JavaScript 原生实现 + 框架适配
 
-## 完整消费函数
+## 完整消费函数（v2）
 
 ```javascript
 async function consumeSSE(response, { onPing, onToken, onDone, onError }) {
+  if (!response.body) {
+    onError?.('Response body unavailable (opaque response from Service Worker?)');
+    return;
+  }
   const reader = response.body.getReader();
   const decoder = new TextDecoder('utf-8');
-  let partialLine = '', fullText = '';
+  let partialLine = '', fullText = '', streamDone = false;
 
   try {
-    while (true) {
+    while (!streamDone) {
       const { value, done } = await reader.read();
       if (done) break;
 
       const chunk = decoder.decode(value, { stream: true });
-      const lines = (partialLine + chunk).split('\n');
+      // ── SSE 行分隔符兼容：\r\n 和 \n ──
+      const lines = (partialLine + chunk).split(/\r?\n/);
       partialLine = lines.pop() || '';
 
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue;
         const data = line.slice(6).trim();
 
-        switch (true) {
-          case data === '[DONE]':
-            onDone(fullText); return;
-          case data === '[PING]':
-            onPing?.(); continue;
-          case data.startsWith('[ERROR]'):
-            onError(data.slice(7).trim()); return;
-          case data.startsWith('['):
-            continue;
-          default:
-            // json.dumps 配对解析
-            const text = JSON.parse(data);
-            fullText += text; onToken(fullText);
+        if (data === '[DONE]') {
+          streamDone = true;
+          onDone(fullText);
+          break;
         }
+        if (data === '[PING]') { onPing?.(); continue; }
+        if (data.startsWith('[ERROR]')) { onError(data.slice(7).trim()); return; }
+        if (data.startsWith('[')) continue;
+        const text = JSON.parse(data);
+        fullText += text; onToken(fullText);
       }
     }
   } finally {
@@ -61,20 +66,60 @@ const chunk = decoder.decode(value, { stream: true });
 const final = decoder.decode();
 ```
 
+## SSE 行分隔符兼容
+
+SSE 规范（[WHATWG](https://html.spec.whatwg.org/multipage/server-sent-events.html)）允许行以 `\r\n`、`\r` 或 `\n` 结尾。
+
+```javascript
+// ❌ 仅处理 \n
+const lines = (partial + chunk).split('\n');
+
+// ✅ 兼容 \r\n 和 \n
+const lines = (partial + chunk).split(/\r?\n/);
+
+// 更严格的规范兼容
+const lines = (partial + chunk).split(/(?:\r\n|\r|\n)/);
+```
+
+## SSE [DONE] 正确处理
+
+`[DONE]` 应同时退出内层 for 和外层 while 循环：
+
+```javascript
+// ❌ break 仅退出 for 循环，while 继续执行
+for (const line of lines) {
+  if (data === '[DONE]') break;  // 只退出 for，while 不退出
+}
+
+// ✅ 方案 1：使用标志位
+let streamDone = false;
+while (!streamDone) {
+  // read...
+  for (const line of lines) {
+    if (data === '[DONE]') { streamDone = true; break; }
+  }
+}
+
+// ✅ 方案 2：直接 return（如果在前端函数中）
+for (const line of lines) {
+  if (data === '[DONE]') { onDone(fullText); return; }
+}
+```
+
 ## 超时管理
 
 ```javascript
 const FIRST_CONTENT_TIMEOUT = 25000; // 25s（后端每 15s ping 一次）
 let hasPing = false;
 
-while (!done) {
+while (!streamDone) {
   let readResult;
   if (!hasPing) {
     readResult = await Promise.race([
       reader.read(),
       new Promise(r => setTimeout(() => r({ timeout: true }), FIRST_CONTENT_TIMEOUT))
     ]);
-    if (readResult.timeout) throw new Error('timeout');
+    if ('timeout' in readResult) throw new Error('timeout'); // 明确检查属性存在，避免类型混淆
   } else {
     readResult = await reader.read();
   }

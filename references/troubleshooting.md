@@ -1,4 +1,8 @@
-# 问题排查手册
+# 问题排查手册 / Troubleshooting Manual
+
+> 🇬🇧 EN: 6-step escalation flow, common error patterns, diagnostic commands.
+> 🇨🇳 ZH: 6 步逐层排查流程、常见错误模式、诊断命令。
+
 
 > 作者：Yardon | 6 步骤逐层排查
 
@@ -63,6 +67,12 @@ assert chunk == decoded, f"Mismatch: {repr(chunk)} != {repr(decoded)}"
 ```javascript
 // 在浏览器控制台
 const decoder = new TextDecoder('utf-8');
+
+// ✅ 推荐：使用 TextEncoder 构建测试字节（语言无关）
+const testText = '你好';  // 替换为任意 Unicode 文本（日语: あ, 韩语: 한）
+console.log(decoder.decode(new TextEncoder().encode(testText))); // → '你好'
+
+// 备用：硬编码中文 UTF-8 字节
 const testBytes = new Uint8Array([0xE4, 0xBD, 0xA0, 0xE5, 0xA5, 0xBD]);
 console.log(decoder.decode(testBytes)); // 应输出 "你好"
 ```

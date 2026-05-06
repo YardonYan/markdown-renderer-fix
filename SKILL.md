@@ -1,13 +1,17 @@
 ---
 name: markdown-renderer-fix
 description: |
-  【强制触发·最高优先级·前后端编码问题】凡是涉及 Markdown 渲染、SSE 流式输出、
+  [EN] Mandatory trigger for Markdown rendering, SSE streaming, Chinese garbled text,
+  code highlighting, Mermaid diagrams, KaTeX formulas, and tool-call output filtering.
+  Do NOT guess parameters from memory — always load this skill.
+
+  [ZH] 【强制触发·最高优先级·前后端编码问题】凡是涉及 Markdown 渲染、SSE 流式输出、
   中文乱码、代码块高亮、Mermaid 图表、KaTeX 公式、工具调用过滤等前端展示问题，
   必须读取本 skill，严禁凭记忆猜测参数。
 
   ## 为什么强制
 
-  中文乱码表面简单，实际涉及前后端 **8 个编码转换点**。凭经验只改一处往往无法根治：
+  中文乱码表面简单，实际涉及前后端**数据流依次经过 8 个阶段**。凭经验只改一处往往无法根治：
   1. 后端 tiktoken 解码 → 2. Python str → 3. json.dumps 转义 → 4. `.encode('utf-8')`
   5. HTTP 传输 → 6. 前端 `reader.read()` → 7. `TextDecoder` → 8. `marked.parse()`
   任一环节出错即乱码。本 skill 基于多次实战修复经验，提供系统排查方案。
@@ -28,6 +32,10 @@ metadata:
 ---
 
 # Markdown 渲染与中文乱码修复
+# Markdown Rendering & Chinese Encoding Fix
+
+> 🇬🇧 **English** | 🇨🇳 **中文** — This skill provides bilingual documentation throughout.
+> 本 Skill 全文档提供中英双语。
 
 > 作者：Yardon | 基于多次实战修复经验
 
@@ -69,6 +77,11 @@ metadata:
 | G | 公式/图表不显示 | 检查 KaTeX delimiters / Mermaid init | markdown_render.md |
 | H | 性能卡顿 | debounce 50ms / rAF 节流 | performance.md |
 
+> 💡 更多参考：
+> - 浏览器兼容性矩阵 → [browser_support.md](references/browser_support.md)
+> - 无障碍访问（ARIA、键盘快捷键、色对比度）→ [accessibility.md](references/accessibility.md)
+> - 修复后验证（11 个测试案例）→ [test_cases.md](references/test_cases.md)
+
 ## 常见错误速查
 
 | 现象 | 根因 | 修复 | 参考 |
@@ -78,21 +91,54 @@ metadata:
 | 第二次提问卡住 | `#streamingMsg` ID 未清理 | `removeAttribute('id')` | frontend_sse.md |
 | SSE 超时 | 后端未定期 ping | 每 15s `yield b"data: [PING]\n\n"` | backend_sse.md |
 | 代码块无复制 | 未生成 `.copy-btn` | `renderMarkdown` 中自动注入 | markdown_render.md |
+| 移动端布局溢出 | 表格无横向滚动容器 | `.table-wrapper { overflow-x: auto }` | browser_support.md |
+| 屏幕阅读器无反馈 | 缺少 ARIA live regions | `role="log"` + `aria-live="polite"` | accessibility.md |
+| CDN 资源加载失败 | 国内网络限制 | 替换为 BootCDN / Staticfile 镜像 | browser_support.md |
 
 ## 快速诊断
+
+> ⚠️ **会话持久化**：当前 chat_template.html 每次请求使用 `Date.now()` 生成会话 ID，
+> 页面刷新后历史对话丢失。如需持久化：
+> - **localStorage**：存储 `{sessionId, messages[]}`，刷新后恢复
+> - **服务端会话管理**：用户登录后绑定 session_id，刷新后查询历史
+> - **URL 参数**：`?session=xxx` 可跨标签页共享
+> 详见 `assets/chat_template.html` 中 `sessionId` 变量附近的注释。
 
 ```bash
 # 测试 SSE 原始输出中是否有 � (U+FFFD)
 curl -s -N -X POST http://127.0.0.1:18765/api/chat/stream \
   -H "Content-Type: application/json" \
   -d '{"message":"hi","session_id":"debug"}' --max-time 30 2>&1 \
-  | grep -o '\\\\ufffd' | wc -l
+  | grep -a -o $'\xef\xbf\xbd' | wc -l
 
 # 运行编码诊断脚本
 python scripts/diagnose_encoding.py --test-text "你好世界"
 ```
 
 ## 参考文档索引
+
+### 📚 阅读顺序建议
+
+```
+新人入门：
+  SKILL.md（你在这里）→ chat_template.html（看实物）→ troubleshooting.md（学排查）
+
+乱码排查：
+  SKILL.md 决策树 → encoding_fix.md（tiktoken/GBK 双根因）→ backend_sse.md（端点实现）
+
+功能实现：
+  chat_template.html（生产级参考）→ markdown_render.md（API 说明）→ performance.md（优化）
+  → frontend_sse.md（SSE 消费）→ security.md（上线前安全审计）
+
+框架集成：
+  framework_adaptation.md（React/Vue/Angular/Svelte 四选一）
+
+质量保证：
+  test_cases.md（11 个验证）→ accessibility.md（A11y）→ browser_support.md（兼容性矩阵）
+```
+
+> ⚠️ 内容冲突时以 **chat_template.html（生产代码）** 和 **backend_sse.md（后端示例）** 为准。
+> 其余文档为说明和补充用途。
 
 | 文档 | 内容 | 何时阅读 |
 |------|------|---------|
@@ -103,12 +149,15 @@ python scripts/diagnose_encoding.py --test-text "你好世界"
 | [framework_adaptation.md](references/framework_adaptation.md) | 框架适配：React/Vue/Angular/Svelte | 使用框架时 |
 | [performance.md](references/performance.md) | 性能：增量渲染 + 节流 + 虚拟滚动 | >5000 字卡顿时 |
 | [security.md](references/security.md) | 安全：XSS + DOMPurify + CSP | 上线前检查 |
-| [test_cases.md](references/test_cases.md) | 8 个验证测试案例 | 修复后验证 |
+| [test_cases.md](references/test_cases.md) | 11 个验证测试案例（含 XSS 和暗黑模式） | 修复后验证 |
 | [troubleshooting.md](references/troubleshooting.md) | 6 步骤排查手册 | 所有方法无效时 |
+| [accessibility.md](references/accessibility.md) | 无障碍访问：ARIA live regions + 键盘快捷键 | 提升可访问性时 |
+| [browser_support.md](references/browser_support.md) | 浏览器兼容性矩阵与已知限制 | 部署前验收 |
 
 ## 完整模板
 
-[assets/chat_template.html](assets/chat_template.html) — 包含所有修复的生产级聊天界面模板
+- [assets/chat_template.html](assets/chat_template.html) — 生产级聊天界面模板（含 SSE 流式消费）
+- [assets/demo.html](assets/demo.html) — Markdown 渲染效果示范页面（卡片式画廊，点击展开）
 
 ## 安装与使用
 

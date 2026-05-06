@@ -1,4 +1,8 @@
-# 中文乱码专项修复指南
+# 中文乱码专项修复 / Chinese Encoding Fix Guide
+
+> 🇬🇧 EN: tiktoken root cause, GBK/UTF-8 mixing, tokenizer compatibility matrix, diagnostic code insertion guide.
+> 🇨🇳 ZH: tiktoken 根因分析、GBK/UTF-8 混用、Tokenizer 兼容矩阵、诊断代码插入指引。
+
 
 > 作者：Yardon | 基于实战修复经验编写
 
@@ -7,7 +11,7 @@
 ```bash
 curl -N -X POST http://127.0.0.1:18765/api/chat/stream \
   -H "Content-Type: application/json" \
-  -d '{"message":"hi","session_id":"debug"}' --max-time 30 2>&1 | grep -o '\\ufffd' | wc -l
+  -d '{"message":"hi","session_id":"debug"}' --max-time 30 2>&1 | grep -a -o $'\xef\xbf\xbd' | wc -l
 # 输出 > 0 → 后端编码问题，继续排查
 # 输出 = 0 → 前端渲染问题
 ```
@@ -22,10 +26,79 @@ curl -N -X POST http://127.0.0.1:18765/api/chat/stream \
 | 4 | JS 字符串处理 | 搜索 `btoa`/`Blob`/`ArrayBuffer` | 避免用于中文，或添加 UTF-8 解码 |
 | 5 | localStorage | 检查存取逻辑 | 直接 `JSON.stringify`/`parse` |     
 | 6 | Markdown 输入 | `marked.parse()` 前打 log | 如果输入已乱码，问题在上游 |
-| 7 | **后端 Agent 输出** | 打印后端 `repr(chunk)` | **最常见根因** |
+| 7 | **后端 Agent 输出** | 打印后端 `repr(chunk)` | **最常见根因** — 见下方 Step 7 详解 |
 | 8 | Windows 环境 | `sys.stdout.encoding` | `PYTHONIOENCODING=utf-8` |
 
+### Step 7 详细操作指引
+
+Step 7（最常见根因）需要在后端 Agent 输出处插入诊断代码：
+
+**文件**：`app_fastapi.py`（或等效的后端 SSE 处理文件）
+**函数**：`event_generator()` 中的字符分块循环
+
+```python
+# ① 分块前：打印完整回答的 repr
+answer = _extract_answer(agent_task.result())
+print(f"[DIAGNOSE] len={len(answer)}, first80={repr(answer[:80])}")
+
+# ② 每个分块：打印 repr
+for i in range(0, len(answer), 24):
+    chunk = answer[i:i+24]
+    print(f"[DIAGNOSE] chunk [{i}] {repr(chunk)}")  # ← 插入这行
+    encoded = json.dumps(chunk)
+    yield f"data: {encoded}\n\n".encode("utf-8")
+```
+
+**判断标准**：
+- `repr(chunk)` 含 `\ufffd` → tiktoken 根因（见下方章节）
+- `repr(chunk)` 含 `\\x` 字节序列 → GBK/UTF-8 混用（见 GBK 章节）
+- `repr(chunk)` 正常但前端乱码 → TextDecoder / SSE 帧格式问题
+
+## GBK/UTF-8 混用乱码（"锟斤拷" 型）
+
+### 特征
+每个汉字显示为 "锟斤拷" 或 "拷斤锟" 等固定汉字组合（而非 ``）。
+
+### 根因
+GBK 编码的文本被错误地用 UTF-8 解码。GBK 双字节序列恰好映射到
+Unicode CJK 扩展区，呈现出看似有意义的乱码汉字。
+
+```
+"你好" (GBK: C4 E3 BA C3)
+  UTF-8 误解码 → C4 E3 非合法首字节 → 替换/错位 → "锟斤拷"
+```
+
+### 排查
+1. 源文件编码：VS Code 状态栏或 `file -i app.py`
+2. HTTP Content-Type 是否声明 `charset=gbk` 而非 `utf-8`
+3. Python `open()` 是否缺少 `encoding='utf-8'`
+4. BeautifulSoup / requests `.text` 是否用错编码推断
+5. 数据库 `charset=utf8mb4` 确认
+
+### 修复
+- HTML: `<meta charset="UTF-8">`（chat_template.html 已设置）
+- SSE: `media_type="text/event-stream; charset=utf-8"`（backend_sse.md 已说明）
+- Python I/O: `open(f, 'r', encoding='utf-8')`
+
 ## 根因：tiktoken 单 token 解码
+
+### 日韩语同样受影响
+
+日语平假名（U+3040–309F）、片假名（U+30A0–30FF）和韩语谚文（U+AC00–D7AF）
+在 UTF-8 中均为 3 字节编码，与中文完全相同。
+在 tiktoken 的字节级 BPE 分词下，这些字符同样可能被跨 token 拆分，
+导致单个 token 解码为不完整 UTF-8 序列 → U+FFFD。
+
+```
+日语「あ」(UTF-8: E3 81 82)
+  enc.decode([不含 82 的 token]) → 不完整序列 → ''
+
+韩语「한」(UTF-8: ED 95 9C)
+  enc.decode([不含 9C 的 token]) → 不完整序列 → ''
+```
+
+修复方案与中文完全一致：`enc.decode(all_tokens)` 一次性解码。
+无需为不同语言编写不同的处理逻辑。
 
 ### 为什么
 
@@ -73,34 +146,22 @@ for i in range(0, len(full_decoded), 24):
 
 ### 后端完整示例
 
+> 完整的 FastAPI / Django / Flask 三框架 SSE 端点实现（含保活信号、超时处理、
+> `_extract_answer` 接口定义）详见 **[backend_sse.md](backend_sse.md)**。
+>
+> 此处仅展示与编码直接相关的核心步骤：
+
 ```python
-import json
-from fastapi.responses import StreamingResponse
+# 一次性解码全部 token（避免逐 token 解码的 U+FFFD）
+token_ids = enc.encode_ordinary(text)
+answer = enc.decode(token_ids)
 
-@app.post("/api/chat/stream")
-async def chat_stream(req: ChatRequest):
-    async def event_generator():
-        yield b"data: [PING]\n\n"
-
-        agent_task = asyncio.create_task(_agent_invoke(messages, session_id))
-        while not agent_task.done():
-            done, _ = await asyncio.wait({agent_task}, timeout=15.0)
-            if not agent_task.done():
-                yield b"data: [PING]\n\n"
-
-        answer = extract_answer(agent_task.result())
-        for i in range(0, len(answer), 24):
-            chunk = json.dumps(answer[i:i+24])
-            yield f"data: {chunk}\n\n".encode("utf-8")
-        yield b"data: [DONE]\n\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream; charset=utf-8",
-        headers={"Cache-Control": "no-cache", "Connection": "keep-alive",
-                 "X-Accel-Buffering": "no"},
-    )
+# 按字符分块 + json.dumps 转义
+for i in range(0, len(answer), 24):
+    yield f"data: {json.dumps(answer[i:i+24])}\n\n".encode("utf-8")
 ```
+
+> 📖 完整端点代码 → [backend_sse.md](backend_sse.md)
 
 ## Windows 环境编码强制
 
@@ -137,4 +198,24 @@ while (true) {
 }
 
 const final = decoder.decode(); // 刷新缓冲区
+```
+
+---
+
+## Tokenizer 兼容性说明
+
+本 Skill 的修复方案基于 **tiktoken（cl100k_base）** 字节级 BPE。
+不同 tokenizer 的适用性：
+
+| Tokenizer | 代表模型 | 适用性 |
+|:----------|:---------|:------|
+| cl100k_base / o200k_base | GPT-4/GPT-4o/mini | ✅ 完全适用 |
+| Claude BPE (Anthropic) | Claude 3/4 | ⚠️ 原理相似，API 不同 |
+| SentencePiece | Gemini 1.5/2.0 | ⚠️ 较少跨 token 拆分 |
+| HF tokenizers (BPE) | Llama/Qwen/DeepSeek | ✅ 需适配 API |
+
+**验证方法**：
+```python
+tokens = tokenizer.encode("你好")
+print(repr(tokenizer.decode([tokens[0]])))  # → '\ufffd' 则受影响
 ```

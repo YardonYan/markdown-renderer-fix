@@ -1,276 +1,1055 @@
 <!DOCTYPE html>
-<!--
-  Markdown Renderer Fix — 完整聊天界面模板
-  作者：Yardon
-  基于 markdown-renderer-fix Skill 构建
-
-  包含所有修复：
-  - UTF-8 编码（TextDecoder + charset=utf-8）
-  - SSE 流式消费（json.dumps/JSON.parse + PING 保活 + 超时管理）
-  - Markdown 渲染（marked.js + highlight.js + KaTeX + Mermaid）
-  - 代码块复制按钮 + 语法高亮
-  - 消息操作按钮（复制/重新生成/点赞/点踩）
-  - 工具调用输出过滤
-  - 连续对话状态管理（streamingMsg ID 清理 + AbortController）
--->
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Chat</title>
-  <!-- Markdown + highlight.js -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-  <!-- KaTeX (math) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-  <!-- Mermaid (diagrams) -->
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-  <style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown 流式渲染 | markdown-renderer-fix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" onerror="window.HLJS_FAIL=true">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js" onerror="window.MARKED_FAIL=true"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" onerror="window.HLJS_FAIL=true"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.0/purify.min.js" onerror="window.PURIFY_FAIL=true"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" onerror="window.KATEX_FAIL=true">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" onerror="window.KATEX_FAIL=true"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onerror="window.KATEX_FAIL=true"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js" onerror="window.MERMAID_FAIL=true"></script>
+<style>
+    :root {
+      --accent: #7BA7A6;
+      --accent-hover: #5E8E8D;
+      --accent-light: #9BC4C3;
+      --text-heading: #2C2C2C;
+      --text-body: #5A5A5A;
+      --text-muted: #8A8A8A;
+      --border: rgba(123,167,166,0.15);
+      --bg-primary: #FAF7F2;
+      --bg-secondary: #F5F0EB;
+      --msg-user-bg: #E8F0F0;
+      --msg-assistant-bg: #ffffff;
+      --msg-user-color: var(--text-heading);
+      --msg-assistant-color: var(--text-heading);
+      --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+      --shadow: 0 2px 14px rgba(0,0,0,0.07);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --accent: #9BC4C3;
+        --accent-hover: #7BA7A6;
+        --accent-light: #7BA7A6;
+        --text-heading: #E0E0E0;
+        --text-body: #B0B0B0;
+        --text-muted: #707070;
+        --border: rgba(255,255,255,0.08);
+        --bg-primary: #1A1A2E;
+        --bg-secondary: #16213E;
+        --msg-user-bg: #1E3A5F;
+        --msg-assistant-bg: #24244E;
+        --msg-user-color: #D0D8E8;
+        --msg-assistant-color: #D0D8E8;
+        --shadow-sm: 0 2px 8px rgba(0,0,0,0.15);
+        --shadow: 0 2px 14px rgba(0,0,0,0.25);
+      }
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    body { background: #F5F0EB; color: #2C2C2C; display: flex; flex-direction: column; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Cormorant Garamond', 'Noto Serif SC', Georgia, serif;
+      background: var(--bg-primary);
+      color: var(--text-body);
+      line-height: 1.7;
+      min-height: 100vh;
+    }
 
-    /* ── Chat Area ── */
-    .chat-area { flex: 1; overflow-y: auto; padding: 24px; }
-    .chat-flow { max-width: 800px; margin: 0 auto; }
+    /* ── CDN 横幅 ── */
+    #cdnFailBanner {
+      display: none;
+      background: #FEF0C7;
+      color: #92400E;
+      padding: 10px 20px;
+      text-align: center;
+      font-size: 0.9rem;
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      font-family: system-ui, sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      #cdnFailBanner { background: #422006; color: #FDE68A; }
+    }
 
-    .msg { display: flex; margin-bottom: 24px; animation: fadeIn 0.3s ease; }
+    /* ── 聊天区域 ── */
+    .chat-area {
+      height: 100vh;
+      overflow-y: auto;
+      padding: 24px 0 280px 0; /* 280px 安全余量：input-area ~120px + footer ~60px + 缓冲 */
+      scroll-behavior: smooth;
+    }
+    .chat-flow {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── 消息气泡 ── */
+    .msg {
+      display: flex;
+      margin-bottom: 14px;
+      animation: msgIn 0.35s ease-out;
+    }
+    @keyframes msgIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     .msg.user { justify-content: flex-end; }
     .msg.assistant { justify-content: flex-start; }
-
-    .msg .bubble {
-      max-width: 85%; padding: 14px 18px; border-radius: 14px;
-      line-height: 1.7; font-size: 15px;
+    .bubble {
+      max-width: 85%;
+      padding: 14px 20px;
+      border-radius: 18px;
+      font-size: 1rem;
+      line-height: 1.75;
+      word-break: break-word;
     }
-    .msg.user .bubble { background: #E8F4F8; color: #2C2C2C; border-bottom-right-radius: 4px; }
-    .msg.assistant .bubble { background: #FFF; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border-bottom-left-radius: 4px; }
+    .user .bubble {
+      background: var(--msg-user-bg);
+      color: var(--msg-user-color);
+      border-bottom-right-radius: 4px;
+    }
+    .assistant .bubble {
+      background: var(--msg-assistant-bg);
+      color: var(--msg-assistant-color);
+      border-bottom-left-radius: 4px;
+      box-shadow: var(--shadow);
+    }
 
-    /* ── Markdown Content ── */
-    .bubble h1, .bubble h2, .bubble h3 { margin: 12px 0 8px; color: #2C4A2C; }
-    .bubble h1 { font-size: 20px; } .bubble h2 { font-size: 17px; } .bubble h3 { font-size: 15px; }
-    .bubble p { margin-bottom: 0.6em; }
+    /* ── 消息操作按钮 ── */
+    .msg-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    .msg-actions button {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      padding: 4px 10px;
+      font-size: 0.9rem;
+      opacity: 0.55;
+      transition: all 0.2s;
+    }
+    .msg-actions button:hover { opacity: 1; background: rgba(123,167,166,0.08); }
+
+    /* ── 输入区域 ── */
+    .input-area {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg-primary);
+      border-top: 1px solid var(--border);
+      padding: 14px 24px 20px;
+      z-index: 100;
+    }
+    .suggestions {
+      max-width: 820px;
+      margin: 0 auto 12px;
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .suggest-btn {
+      padding: 8px 18px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      color: var(--text-body);
+      transition: all 0.25s;
+      font-family: inherit;
+    }
+    .suggest-btn:hover {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(123,167,166,0.3);
+    }
+    .input-row {
+      max-width: 820px;
+      margin: 0 auto;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    #chatInput {
+      flex: 1;
+      padding: 12px 18px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      resize: none;
+      outline: none;
+      min-height: 48px;
+      max-height: 150px;
+      background: var(--bg-secondary);
+      color: var(--text-body);
+      transition: border-color 0.2s;
+    }
+    #chatInput:focus { border-color: var(--accent); }
+    #sendBtn {
+      padding: 12px 28px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: background 0.2s, opacity 0.2s;
+    }
+    #sendBtn:hover { background: var(--accent-hover); }
+    #sendBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── 站点底部 ── */
+    .site-footer {
+      position: relative;
+      padding: 14px 20px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      z-index: 90;
+    }
+    .site-footer strong { color: var(--text-heading); font-weight: 600; }
+    .site-footer a {
+      color: var(--accent);
+      text-decoration: none;
+      margin-left: 8px;
+      transition: color 0.2s;
+    }
+    .site-footer a:hover { color: var(--accent-hover); }
+
+    /* ── Markdown 内容 ── */
+    .bubble h1 { font-family: 'Playfair Display', 'Noto Serif SC', serif; font-size: 1.5rem; font-weight: 600; color: var(--accent); margin: 18px 0 10px; }
+    .bubble h2 { font-family: 'Playfair Display', 'Noto Serif SC', serif; font-size: 1.2rem; font-weight: 600; color: var(--text-heading); margin: 14px 0 8px; }
+    .bubble h3 { font-size: 1.05rem; font-weight: 600; color: var(--text-heading); margin: 10px 0 6px; }
+    .bubble p { margin-bottom: 0.7em; }
     .bubble p:last-child { margin-bottom: 0; }
-    .bubble ul, .bubble ol { padding-left: 1.5em; margin-bottom: 0.6em; }
-    .bubble li { margin-bottom: 0.3em; }
-    .bubble strong { font-weight: 700; }
-    .bubble code { background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
-    .bubble blockquote { border-left: 4px solid #7BA7A6; margin: 12px 0; padding: 8px 16px; background: rgba(143,166,142,0.08); border-radius: 0 8px 8px 0; }
-    .bubble table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 14px; }
-    .bubble th, .bubble td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
-    .bubble th { background: #f0f4f0; font-weight: 600; }
-    .bubble tr:nth-child(even) { background: #fafafa; }
+    .bubble strong { font-weight: 600; color: var(--text-heading); }
+    .bubble em { font-style: italic; }
+    .bubble a { color: var(--accent); text-decoration: underline; }
+    .bubble ul, .bubble ol { padding-left: 1.5em; margin-bottom: 0.7em; }
+    .bubble li { margin-bottom: 0.35em; }
+    .bubble blockquote {
+      border-left: 3px solid var(--accent);
+      margin: 10px 0;
+      padding: 8px 16px;
+      background: rgba(123,167,166,0.06);
+      border-radius: 0 8px 8px 0;
+      color: var(--text-muted);
+    }
+    .bubble table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.88rem; overflow: hidden; border-radius: 8px; display: block; overflow-x: auto; }
+    .bubble th { background: var(--accent); color: #fff; font-weight: 600; padding: 8px 14px; text-align: left; white-space: nowrap; }
+    .bubble td { padding: 8px 14px; border-bottom: 1px solid var(--border); }
+    .bubble tr:nth-child(even) { background: rgba(123,167,166,0.04); }
+    .bubble code {
+      background: rgba(107,123,140,0.12);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+      font-size: 0.85em;
+    }
+    .bubble pre { margin: 10px 0; border-radius: 10px; overflow-x: auto; background: #1e1e1e; padding: 16px; }
+    .bubble pre code { background: transparent; padding: 0; font-size: 0.85rem; color: #d4d4d4; }
+    .bubble hr { border: none; height: 1px; background: var(--border); margin: 16px 0; }
+    .bubble img { max-width: 100%; border-radius: 8px; }
+    .katex-display { overflow-x: auto; }
 
-    /* ── Code Blocks ── */
-    .code-block-wrapper { margin: 12px 0; border-radius: 10px; overflow: hidden; border: 1px solid #E0D8CC; background: #F5F0EB; }
-    .code-block-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: #EAE2D6; border-bottom: 1px solid #E0D8CC; }
-    .code-lang { font-size: 12px; color: #7BA7A6; text-transform: uppercase; font-weight: 600; }
-    .copy-btn { padding: 4px 12px; border: 1px solid #D5CCC0; border-radius: 6px; background: #F5F0EB; color: #5A6B5A; cursor: pointer; font-size: 12px; transition: all 0.2s; }
-    .copy-btn:hover { background: #E0D8CC; }
-    .code-block-wrapper pre { margin: 0; padding: 16px; overflow-x: auto; background: #F5F0EB; }
-    .code-block-wrapper pre code { background: transparent; padding: 0; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 13px; }
+    /* ── 代码块包装 ── */
+    .code-block-wrapper { margin: 10px 0; border-radius: 10px; overflow: hidden; }
+    .code-block-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 14px; background: #2d2d2d; }
+    .code-lang { font-size: 0.75rem; color: var(--accent-light); text-transform: uppercase; font-weight: 600; }
+    .copy-btn {
+      padding: 4px 10px; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px;
+      background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.65);
+      cursor: pointer; font-size: 0.78rem; font-family: inherit; transition: all 0.2s;
+    }
+    .copy-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+    .code-block-wrapper pre { margin: 0; padding: 14px; background: #1e1e1e; }
+    .code-block-wrapper pre code { background: transparent; padding: 0; font-size: 0.85rem; line-height: 1.6; color: #d4d4d4; }
 
-    /* ── Message Actions ── */
-    .msg-actions { display: flex; gap: 4px; margin-top: 6px; opacity: 0; transition: opacity 0.2s; }
-    .msg.assistant:hover .msg-actions { opacity: 1; }
-    .msg-actions button { padding: 4px 8px; border: none; border-radius: 4px; background: transparent; font-size: 14px; cursor: pointer; opacity: 0.5; transition: all 0.2s; }
-    .msg-actions button:hover { opacity: 1; background: #f0f0f0; }
+    /* ── 光标闪烁 ── */
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
-    /* ── Input Area ── */
-    .input-area { flex-shrink: 0; padding: 16px 24px 20px; border-top: 1px solid #E8E0D5; background: #F5F0EB; }
-    .input-inner { max-width: 800px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; background: #fff; border: 1px solid #E8E0D5; border-radius: 16px; padding: 8px 8px 8px 16px; transition: border-color 0.2s; }
-    .input-inner:focus-within { border-color: #7BA7A6; box-shadow: 0 0 0 2px rgba(123,167,166,0.1); }
-    .input-inner textarea { flex: 1; border: none; outline: none; font-size: 15px; font-family: inherit; resize: none; text-align: center; padding: 6px 8px 6px 24px; line-height: 1.5; max-height: 150px; background: transparent; }
-    .input-inner textarea::placeholder { color: #B8A898; }
-    .send-btn { padding: 10px 18px; border: none; border-radius: 10px; background: #7BA7A6; color: #fff; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
-    .send-btn:hover { background: #6A9695; }
-    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    /* ── 滚动条 ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--accent-light); border-radius: 3px; }
 
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-  </style>
+    @media (max-width: 640px) {
+      .chat-flow { padding: 0 12px; }
+      .bubble { max-width: 92%; padding: 12px 16px; }
+      .input-area { padding: 10px 12px 16px; }
+    }
+
+</style>
 </head>
 <body>
-  <div class="chat-area" id="chatArea">
-    <div class="chat-flow" id="chatFlow"></div>
-  </div>
 
-  <div class="input-area">
-    <div class="input-inner">
-      <textarea id="chatInput" rows="1" placeholder="输入你的问题…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,150)+'px';"></textarea>
-      <button class="send-btn" id="sendBtn" onclick="sendMessage()">发送</button>
-    </div>
-  </div>
+<div id="cdnFailBanner"></div>
 
-  <script>
-    /* ═══════════════════════ Config ═══════════════════════ */
+<div class="chat-area" id="chatArea">
+  <div class="chat-flow" id="chatFlow"></div>
+</div>
+
+<footer class="input-area">
+  <div class="suggestions">
+    <button class="suggest-btn" data-question="什么是 RAG？">💡 什么是 RAG？</button>
+    <button class="suggest-btn" data-question="用 Python 写一个冒泡排序">🐍 冒泡排序</button>
+    <button class="suggest-btn" data-question="Markdown 表格示例">📊 表格示例</button>
+  </div>
+  <div class="input-row">
+    <textarea id="chatInput" rows="1" placeholder="输入消息，Enter 发送，Shift+Enter 换行…" aria-label="消息输入框"></textarea>
+    <button id="sendBtn">发送</button>
+  </div>
+</footer>
+
+<footer class="site-footer">
+  Built by <strong>Yardon</strong> ·
+  <a href="https://github.com/YardonYan/markdown-renderer-fix" target="_blank" rel="noopener">GitHub ↗</a>
+</footer>
+
+<script>
+
+    /* ═══════════════════════ 全局配置 ═══════════════════════ */
     const API_BASE = '';
+    
+    /* file:// 协议检测：本地测试需通过 HTTP 服务器访问 */
+    if (window.location.protocol === 'file:') {
+      console.warn('[markdown-renderer-fix] 检测到 file:// 协议。CDN 资源可能因 CORS 被拦截，建议通过本地 HTTP 服务器访问（如 py -m http.server 8080）。');
+    }
     let isSending = false;
-    let streamAbortCtl = null;   // 统一 AbortController（SSE + fallback 共用）
-    let thinkingTimer = null;    // 思考计时器 interval ID
+    let streamAbortCtl = null;
+    let thinkingTimer = null;
+    let renderCleanupFn = null;
 
-    /* ═════════════════════════════════════════════════════════════
-       Markdown 渲染引擎
-       - marked.js：Markdown → HTML
-       - highlight.js：代码语法高亮
-       - KaTeX：数学公式（$...$ / $$...$$）
-       - Mermaid：图表（```mermaid）
-       ═════════════════════════════════════════════════════════════ */
-    marked.setOptions({ breaks: true, gfm: true, headerIds: false });
+    /* ═══════════════════════ Mermaid 初始化 ═══════════════════════ */
+    if (typeof mermaid !== 'undefined') {
+      mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'strict' });
+    }
 
-    // ═════════════════════════════════════════════════════════════
-    // 工具调用输出过滤 — 防止 save_qa_to_knowledge_base 等泄露到 UI
-    // ═════════════════════════════════════════════════════════════
-    function cleanToolOutput(text) {
+    /* ═══════════════════════ marked.js 配置 ═══════════════════════ */
+    if (typeof marked !== 'undefined') {
+      marked.setOptions({ breaks: true, gfm: true, headerIds: false });
+    }
+
+    /* ═══════════════════════ DOMPurify 安全钩子 ═══════════════════════ */
+    if (typeof DOMPurify !== 'undefined') {
+      DOMPurify.addHook('afterSanitizeAttributes', function(node) {
+        if (node.hasAttribute('href')) {
+          const href = node.getAttribute('href').trim().toLowerCase();
+          if (href.startsWith('javascript:') || href.startsWith('data:') ||
+              href.startsWith('vbscript:')) {
+            node.removeAttribute('href');
+          }
+        }
+      });
+    }
+
+    /* ═══════════════════════ CDN 降级检测 ═══════════════════════ */
+    /* 所有 CDN <script> 均在 <head> 中，onerror 同步设置标志位。
+       DOMContentLoaded 触发时脚本加载结果已确定，无需延迟等待。 */
+    window.addEventListener('DOMContentLoaded', () => {
+      const missing = [];
+      if (window.MARKED_FAIL || typeof marked === 'undefined') missing.push('marked.js');
+      if (window.HLJS_FAIL || typeof hljs === 'undefined') missing.push('highlight.js');
+      if (window.PURIFY_FAIL || typeof DOMPurify === 'undefined') missing.push('DOMPurify');
+      if (window.KATEX_FAIL || typeof renderMathInElement === 'undefined') missing.push('KaTeX');
+      if (window.MERMAID_FAIL || typeof mermaid === 'undefined') missing.push('Mermaid');
+      if (missing.length > 0) {
+        const banner = document.getElementById('cdnFailBanner');
+        banner.style.display = 'block';
+        banner.textContent = '⚠️ ' + missing.join('、') + ' 加载失败，部分功能降级为纯文本模式';
+      }
+    });
+
+    /* ═══════════════════════ 增量渲染追踪 ═══════════════════════ */
+    let lastRenderedLength = 0;
+    const RENDER_THRESHOLD = 80;
+
+    /* ═══════════════════════ 工具调用输出过滤 ═══════════════════════
+       注意：incremental=true 时（流式阶段）仅做前缀轻量检查。
+       完整的正则过滤推迟到流结束时的全量渲染（incremental=false）。
+       这避免了每个 token 都对全文执行 6 个正则的 O(n²) 开销。 */
+    function cleanToolOutput(text, opts = {}) {
       if (!text) return '';
+      if (opts.incremental) {
+        // 流式阶段：仅检查特定前缀，跳过耗时正则
+        if (text.startsWith('<function') || text.startsWith('<\/function') ||
+            text.startsWith('{') || text.startsWith('Answer record saved')) {
+          return '';
+        }
+        return text;  // 不做任何正则，流结束后统一处理
+      }
+      // ── 全量模式（流结束时调用一次）──
       let out = text;
       out = out.replace(/\{[^{}]*"tool_calls"\s*:\s*\[[\s\S]*?\][^{}]*\}/g, '');
       out = out.replace(/<\/?function[^>]*>/gi, '');
       out = out.replace(/<function=[^>]+>/gi, '');
-      out = out.replace(/Answer record saved successfully[\s\S]*?(?=\n\n|\n#|$)/gi, '');
-      out = out.replace(/.*(?:已保存|自动保存).*(?:知识库|记录)[\s\S]*?(?=\n\n|\n#|$)/g, '');
+      // 行首锚定匹配系统日志（^ + m 标志），避免误伤讨论"保存"的正常内容
+      out = out.replace(/^\s*(?:Answer record saved successfully|已保存至知识库|自动保存记录).*$/gim, '');
       out = out.replace(/save_qa_to_knowledge_base\s*\([\s\S]*?\)/g, '');
       return out.trim();
     }
 
-    function renderMarkdown(text) {
-      text = cleanToolOutput(text);
-      const html = marked.parse(text);
+    /* ═════════════════════════════════════════════════════════════
+       Markdown 渲染引擎 v3
+       - DOMPurify XSS 净化 + javascript: 过滤钩子
+       - KaTeX / Mermaid 错误边界（失败保留原始文本）
+       - AbortController 管理 setTimeout 延迟任务
+       - 增量渲染（阈值 80 字符）
+       ═════════════════════════════════════════════════════════════ */
+    function renderMarkdown(text, opts = {}) {
+      const { incremental = false } = opts;
+      text = cleanToolOutput(text, { incremental });
+
+      // 清理上一次渲染的延迟任务
+      if (renderCleanupFn) { renderCleanupFn(); renderCleanupFn = null; }
+
+      // 增量渲染：未达到阈值则跳过
+      if (incremental && text.length - lastRenderedLength < RENDER_THRESHOLD && lastRenderedLength > 0) {
+        return null;
+      }
+      lastRenderedLength = text.length;
+
       const container = document.createElement('div');
-      container.innerHTML = html;
+
+      // CDN 降级：marked 未加载时使用纯文本
+      if (window.MARKED_FAIL || typeof marked === 'undefined') {
+        container.textContent = text;
+        return container;
+      }
+
+      // 1. Markdown → HTML（错误边界）
+      let html;
+      try { html = marked.parse(text); }
+      catch (e) { container.textContent = text; return container; }
+
+      // 2. DOMPurify 净化 + javascript: 过滤
+      let clean;
+      if (typeof DOMPurify !== 'undefined') {
+        try {
+          clean = DOMPurify.sanitize(html, {
+            ALLOWED_TAGS: ['h1','h2','h3','h4','h5','h6','p','br','ul','ol','li',
+              'strong','em','del','a','code','pre','blockquote','table','thead',
+              'tbody','tr','th','td','img','span','div','hr','sup','sub','input'],
+            ALLOWED_ATTR: ['href','src','class','id','target','alt','title','type','checked','disabled'],
+            ALLOW_DATA_ATTR: false
+          });
+        } catch (e) { clean = html; }
+      } else { clean = html; }
+      container.innerHTML = clean;
+
+      // 3. 响应式表格包裹
+      container.querySelectorAll('table').forEach(table => {
+        if (!table.parentElement.classList.contains('table-wrapper')) {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'table-wrapper';
+          table.parentNode.insertBefore(wrapper, table);
+          wrapper.appendChild(table);
+        }
+      });
+
+      // 4. 代码块：语言标签 + 复制按钮
       container.querySelectorAll('pre code').forEach(block => {
         const pre = block.parentElement;
+        // 跳过已被包裹的
+        if (pre.parentElement.classList.contains('code-block-wrapper')) return;
         const wrapper = document.createElement('div'); wrapper.className = 'code-block-wrapper';
-        const lang = (block.className.match(/language-(\w+)/)||[])[1]||'text';
+        const lang = (block.className.match(/language-(\w+)/) || [])[1] || 'text';
         const header = document.createElement('div'); header.className = 'code-block-header';
-        header.innerHTML = `<span class="code-lang">${lang}</span><button class="copy-btn" onclick="copyCode(this)">📋 复制</button>`;
+        header.innerHTML = '<span class="code-lang">' + lang + '</span><button class="copy-btn" data-action="copy-code" aria-label="复制代码">📋 复制</button>';
         pre.parentNode.insertBefore(wrapper, pre);
         wrapper.appendChild(header); wrapper.appendChild(pre);
       });
-      setTimeout(() => container.querySelectorAll('pre code').forEach(b => { if(typeof hljs!=='undefined') hljs.highlightElement(b); }), 50);
-      if (typeof renderMathInElement !== 'undefined') renderMathInElement(container, { delimiters: [{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}] });
+
+      // 5. 延迟渲染任务（AbortController 管理）
+      const signalAc = new AbortController();
+      const signal = signalAc.signal;
+
+      const hlTimer = setTimeout(() => {
+        if (signal.aborted) return;
+        if (typeof hljs !== 'undefined') {
+          container.querySelectorAll('pre code').forEach(b => {
+            try { hljs.highlightElement(b); } catch(e) {}
+          });
+        }
+      }, 50);
+
+      // 6. KaTeX（错误边界：throwOnError:false + try/catch）
+      const katexTimer = setTimeout(() => {
+        if (signal.aborted) return;
+        if (typeof renderMathInElement !== 'undefined') {
+          try {
+            renderMathInElement(container, {
+              delimiters: [
+                { left: '$$', right: '$$', display: true },
+                { left: '$', right: '$', display: false }
+              ],
+              throwOnError: false,
+              errorColor: 'var(--text-muted)'
+            });
+          } catch(e) { /* 公式渲染失败，保留原始文本 */ }
+        }
+      }, 100);
+
+      // 7. Mermaid（错误边界）
+      // 注意：AbortController 仅在 setTimeout 延迟（200ms）内有效。
+      // 一旦回调开始执行，mermaid.run() 返回的 Promise 无法被外部 signal 中断。
+      // 若渲染期间外层 container 的 DOM 已被新渲染替换，Mermaid 完成后的
+      // DOM 操作可能目标不存在（mermaid.run 内部 catch 会静默处理）。
+      const mermaidTimer = setTimeout(() => {
+        if (signal.aborted) return;
+        if (typeof mermaid !== 'undefined') {
+          try {
+            const blocks = container.querySelectorAll('.language-mermaid');
+            if (blocks.length > 0) {
+              blocks.forEach(b => {
+                const pre = b.parentElement;
+                const div = document.createElement('div');
+                div.className = 'mermaid'; div.textContent = b.textContent;
+                try { pre.parentNode.replaceChild(div, pre); } catch(e) {}
+              });
+              // mermaid.run Promise 无法通过 AbortController 取消（见上方注释）
+              mermaid.run({ nodes: container.querySelectorAll('.mermaid') }).catch(() => {});
+            }
+          } catch(e) { /* Mermaid 失败，保留原始代码块 */ }
+        }
+      }, 200);
+
+      // 注册清理函数
+      renderCleanupFn = () => {
+        signalAc.abort();
+        clearTimeout(hlTimer);
+        clearTimeout(katexTimer);
+        clearTimeout(mermaidTimer);
+        renderCleanupFn = null;
+      };
+
+      // 8. 图片性能优化：延迟加载 + 异步解码，减少 CLS
+      container.querySelectorAll('img').forEach(img => {
+        if (!img.hasAttribute('loading')) img.loading = 'lazy';
+        if (!img.hasAttribute('decoding')) img.decoding = 'async';
+        img.style.maxWidth = '100%';
+        img.style.height = 'auto';
+      });
+
       return container;
     }
 
-    function copyCode(btn) {
-      const code = btn.closest('.code-block-wrapper').querySelector('code').textContent;
-      navigator.clipboard.writeText(code).then(() => { btn.textContent='✅ 已复制'; setTimeout(()=>btn.textContent='📋 复制',1500); });
+    /* ═══════════════════════ Clipboard 工具 ═══════════════════════ */
+    function copyToClipboard(text, onSuccess, onError) {
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(onSuccess).catch(() => fallbackCopy());
+      } else {
+        fallbackCopy();
+      }
+      function fallbackCopy() {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+          document.body.appendChild(ta);
+          ta.focus(); ta.select();
+          const ok = document.execCommand('copy');
+          document.body.removeChild(ta);
+          if (ok) onSuccess(); else if (onError) onError();
+        } catch(e) { if (onError) onError(e); }
+      }
     }
 
-    /* ═════════════════════════════════════════════════════════════
-       SSE 流式消费核心
-       - 后端 json.dumps 编码 → 前端 JSON.parse 解码
-       - [PING] 保活信号（每 15s）→ 重置超时
-       - [DONE] 结束信号 → 停止读取
-       - 25s 首内容超时 → 降级到非流式 /api/chat
-       ═════════════════════════════════════════════════════════════ */
-    function appendMessage(role, content) {
+    function copyCode(btn) {
+      const wrapper = btn.closest('.code-block-wrapper');
+      if (!wrapper) return;
+      const codeEl = wrapper.querySelector('code');
+      if (!codeEl) return;
+      const code = codeEl.textContent;
+
+      // 清除上次计时器
+      if (btn._copyTimer) { clearTimeout(btn._copyTimer); btn._copyTimer = null; }
+
+      copyToClipboard(code,
+        () => {
+          btn.textContent = '✅ 已复制';
+          btn._copyTimer = setTimeout(() => { btn.textContent = '📋 复制'; }, 1500);
+        },
+        () => {
+          btn.textContent = '❌ 失败';
+          btn._copyTimer = setTimeout(() => { btn.textContent = '📋 复制'; }, 1500);
+        }
+      );
+    }
+
+    /* ═══════════════════════ 消息操作 ═══════════════════════ */
+
+    /** 复制整条消息的文本内容 */
+    function copyMsg(btn) {
+      const bubble = btn.closest('.bubble');
+      if (!bubble) return;
+      // 获取纯文本（排除操作按钮区域）
+      const clone = bubble.cloneNode(true);
+      const actionsEl = clone.querySelector('.msg-actions');
+      if (actionsEl) actionsEl.remove();
+      const text = clone.textContent.trim();
+
+      if (btn._copyTimer) { clearTimeout(btn._copyTimer); }
+
+      copyToClipboard(text,
+        () => {
+          btn.textContent = '✅';
+          btn._copyTimer = setTimeout(() => { btn.textContent = '📋'; }, 1500);
+        },
+        () => {
+          btn.textContent = '❌';
+          btn._copyTimer = setTimeout(() => { btn.textContent = '📋'; }, 1500);
+        }
+      );
+    }
+
+    /** 重新生成：找到前一条用户消息重新发送，替换当前 AI 回复 */
+    function regenerateMsg(btn) {
+      const msgEl = btn.closest('.msg');
+      if (!msgEl) return;
+      // 找到前一条用户消息
+      let prev = msgEl.previousElementSibling;
+      while (prev) {
+        if (prev.classList.contains('user')) break;
+        prev = prev.previousElementSibling;
+      }
+      if (!prev) return;
+      const userText = prev.querySelector('.bubble')?.textContent?.trim();
+      if (!userText) return;
+      const input = document.getElementById('chatInput');
+      input.value = userText;
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+      // 传入当前 assistant 消息元素 → sendMessage 会先删除它，避免重复堆积
+      sendMessage(msgEl);
+    }
+
+    /* ═══════════════════════ 键盘事件 ═══════════════════════ */
+    function handleInputKey(event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+        return;
+      }
+      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        sendMessage();
+        return;
+      }
+      if (event.key === 'Escape' && isSending) {
+        event.preventDefault();
+        cancelGeneration();
+      }
+    }
+
+    /** 取消流式生成 */
+    function cancelGeneration() {
+      if (streamAbortCtl) {
+        streamAbortCtl.abort();
+        streamAbortCtl = null;
+      }
+    }
+
+    /* ═══════════════════════ 消息渲染 ═══════════════════════ */
+    function appendMessage(role, content, addActions = true) {
       const flow = document.getElementById('chatFlow');
-      const div = document.createElement('div'); div.className = 'msg '+role;
+      const article = document.createElement('div');
+      article.className = 'msg ' + role;
+      article.setAttribute('role', 'article');
+      article.setAttribute('aria-label', role === 'user' ? '用户消息' : 'AI 回复');
+
       const bubble = document.createElement('div'); bubble.className = 'bubble';
+
       if (role === 'assistant') {
         bubble.appendChild(renderMarkdown(content));
-        const actions = document.createElement('div'); actions.className = 'msg-actions';
-        actions.innerHTML = '<button onclick="copyMsg(this)" title="复制">📋</button><button onclick="regenerateMsg(this)" title="重新生成">🔄</button><button title="有用">👍</button><button title="无用">👎</button>';
-        bubble.appendChild(actions);
-      } else { bubble.textContent = content; }
-      div.appendChild(bubble); flow.appendChild(div);
+        if (addActions) {
+          const actions = document.createElement('div'); actions.className = 'msg-actions';
+          actions.innerHTML = '<button data-action="copy-msg" title="复制消息" aria-label="复制消息">📋</button>' +
+            '<button data-action="regenerate" title="重新生成" aria-label="重新生成回复">🔄</button>' +
+            '<button title="有用" aria-label="有用" data-action="thumbs-up">👍</button>' +
+            '<button title="无用" aria-label="无用" data-action="thumbs-down">👎</button>';
+          bubble.appendChild(actions);
+        }
+      } else {
+        bubble.textContent = content;
+      }
+      article.appendChild(bubble);
+      flow.appendChild(article);
       document.getElementById('chatArea').scrollTop = document.getElementById('chatArea').scrollHeight;
     }
 
-    async function sendMessage() {
+    /* ═════════════════════════════════════════════════════════════
+       模拟流式响应数据
+       - 3 个预设问题的完整回答（含代码/表格/Mermaid，覆盖核心渲染场景）
+       ═════════════════════════════════════════════════════════════ */
+    const SIMULATED_REPLIES = {
+      "什么是 RAG？": "RAG（检索增强生成，Retrieval-Augmented Generation）是一种将**信息检索**与**大语言模型**结合的技术架构。\n\n### 🎯 核心思路\n\n传统的 LLM 回答依赖训练时\"记忆\"的知识，存在两个致命问题：\n- 🕐 知识截止日期限制（无法回答训练后的事件）\n- 🌀 \"幻觉\"（编造不存在的事实）\n\nRAG 的解法：**先检索 → 再生成**。\n\n```python\n# RAG 简化架构代码\nfrom langchain.embeddings import OpenAIEmbeddings\nfrom langchain.vectorstores import Chroma\n\n# 1. 向量化知识库\nembeddings = OpenAIEmbeddings()\nvectordb = Chroma.from_documents(docs, embeddings)\n\n# 2. 检索相关文档（Top-K）\nretriever = vectordb.as_retriever(search_kwargs={\"k\": 3})\nrelevant = retriever.get_relevant_documents(\"什么是向量检索？\")\n\n# 3. 组合上下文生成最终回答\ncontext = \"\\n\".join(doc.page_content for doc in relevant)\nprompt = f\"基于以下资料回答：\\n{context}\\n\\n问题：什么是向量检索？\"\n# 将 prompt 发送给 LLM 生成回答\n```\n\n### 📊 适用场景对比\n\n| 场景 | 传统 LLM | RAG 增强 |\n|:-----|:--------:|:--------:|\n| 企业知识库问答 | ❌ 无法触及内部文档 | ✅ 基于内部文档精准回答 |\n| 时事新闻查询 | ❌ 受训练截止日期限制 | ✅ 实时检索最新信息 |\n| 医疗诊断辅助 | ❌ 可能产生幻觉 | ✅ 基于权威文献作答 |\n| 法律条文解释 | ❌ 泛泛而谈 | ✅ 引用具体条款 |\n\n> 💡 RAG 是目前企业级 LLM 落地的首选架构，有效解决了知识时效性和事实准确性的核心痛点。",
+      "用 Python 写一个冒泡排序": "### 🫧 冒泡排序（Bubble Sort）\n\n冒泡排序是最经典的排序算法之一，通过不断交换相邻的逆序元素，像气泡一样把大元素\"浮\"到数组末尾。\n\n```python\ndef bubble_sort(arr):\n    \"\"\"\n    冒泡排序 — 原地排序实现\n    时间复杂度：O(n²)  最坏/平均\n    空间复杂度：O(1)\n    稳定性：稳定\n    \"\"\"\n    n = len(arr)\n    for i in range(n):\n        swapped = False  # 优化标记\n        for j in range(0, n - i - 1):\n            if arr[j] > arr[j + 1]:\n                arr[j], arr[j + 1] = arr[j + 1], arr[j]\n                swapped = True\n        if not swapped:  # 本轮无交换 → 已有序，提前结束\n            break\n    return arr\n\n# ── 测试 ──\nif __name__ == \"__main__\":\n    data = [64, 34, 25, 12, 22, 11, 90]\n    print(f\"排序前：{data}\")\n    print(f\"排序后：{bubble_sort(data)}\")\n    # 输出：排序前：[64, 34, 25, 12, 22, 11, 90]\n    #       排序后：[11, 12, 22, 25, 34, 64, 90]\n```\n\n### 📈 执行过程可视化\n\n```mermaid\ngraph TD\n    A[原始数组: 5,3,8,1] --> B[第1轮: 3,5,1,8]\n    B --> C[第2轮: 3,1,5,8]\n    C --> D[第3轮: 1,3,5,8]\n    D --> E[✅ 排序完成]\n```\n\n| 轮次 | 比较次数 | 本轮结果 |\n|:---:|:-------:|:--------|\n| 1 | 3 次 | [3, 5, 1, **8**] |\n| 2 | 2 次 | [3, 1, **5**, 8] |\n| 3 | 1 次 | [1, **3**, 5, 8] |\n\n> 📌 冒泡排序虽简单易懂，但 $O(n^2)$ 复杂度不适合大数据排序。实际场景优先使用 Python 内置 `sorted()`（Timsort, $O(n \\log n)$）。",
+      "Markdown 表格示例": "### 📊 标记语言横评\n\n选择文档格式是技术写作的第一步，以下是三种主流标记语言的详细对比：\n\n| 特性 | 📝 **Markdown** | 📄 **reStructuredText** | 🌐 **AsciiDoc** |\n|:-----|:---------------:|:----------------------:|:---------------:|\n| 学习曲线 | ⭐ 极低 | ⭐⭐⭐ 中等 | ⭐⭐ 较低 |\n| 表格 | ✅ 基础 GFM | ✅ 复杂表格 | ✅ 复杂表格 |\n| 代码高亮 | ✅ 三反引号 + 语言 | ✅ code-block 指令 | ✅ 四反引号 |\n| 数学公式 | ⚠️ 需 KaTeX/MathJax | ✅ 原生 LaTeX | ✅ 原生 MathJax |\n| 交叉引用 | ❌ 不支持 | ✅ 内置 ref/label | ✅ 内置 xref |\n| 嵌套列表 | ✅ 缩进 2/4 空格 | ✅ 缩进 | ✅ 缩进或 * |\n| GitHub | ✅ 原生渲染 | ⚠️ 仅 .rst 文件 | ⚠️ 仅 .adoc 文件 |\n| 输出格式 | HTML 为主 | HTML/PDF/LaTeX | HTML/PDF/EPUB/DocBook |\n| 生态活跃度 | 🔥🔥🔥 极高 | 📚 文档项目 | 📖 技术出版 |\n\n### 🎯 选型建议流程\n\n```mermaid\ngraph LR\n    A[需要什么？] --> B{出版级输出？}\n    B -->|是| C{需要 EPUB？}\n    B -->|否| D[📝 Markdown]\n    C -->|是| E[🌐 AsciiDoc]\n    C -->|否| F{团队熟悉 Python？}\n    F -->|是| G[📄 reStructuredText]\n    F -->|否| H[🌐 AsciiDoc]\n```\n\n> 💭 绝大多数场景下 **Markdown** 是最优解。只有当你需要输出专业级 PDF/EPUB 或构建大型文档项目时，才考虑 reStructuredText 或 AsciiDoc。"
+    };
+
+    /* ═════════════════════════════════════════════════════════════
+    /* ═════════════════════════════════════════════════════════════
+       模拟流式响应 v2
+       - 两阶段渲染：纯文本打字 → Markdown 渲染
+       - 无阈值阻塞，立即显示字符
+       - 闪烁光标，Markdown 阶段节流 180ms
+       ═════════════════════════════════════════════════════════════ */
+    function simulateStream(question) {
+      if (isSending) return;
+      const response = SIMULATED_REPLIES[question];
+      if (!response) return;
+
+      lastRenderedLength = 0;
+      if (renderCleanupFn) { renderCleanupFn(); renderCleanupFn = null; }
+
+      isSending = true;
+      const input = document.getElementById('chatInput');
+      const sendBtn = document.getElementById('sendBtn');
+      sendBtn.disabled = true;
+      input.disabled = true;
+
+      const startTime = Date.now();
+
+      /* ── 用户消息 ── */
+      const userEl = document.createElement('div'); userEl.className = 'msg user'; userEl.setAttribute('role', 'article');
+      const userBubble = document.createElement('div'); userBubble.className = 'bubble';
+      userBubble.textContent = question; userEl.appendChild(userBubble);
+      document.getElementById('chatFlow').appendChild(userEl);
+
+      /* ── AI 气泡 ── */
+      const assistEl = document.createElement('div');
+      assistEl.className = 'msg assistant'; assistEl.id = 'streamingMsg';
+      assistEl.setAttribute('role', 'status'); assistEl.setAttribute('aria-live', 'polite');
+      const bubble = document.createElement('div'); bubble.className = 'bubble';
+      assistEl.appendChild(bubble);
+      document.getElementById('chatFlow').appendChild(assistEl);
+
+      /* ── 内部状态 ── */
+      const totalLen = response.length;
+      const plainThreshold = 50;
+      const perCharMs = 28;
+      let cursorEl = null, animFrame = null;
+      let plainPhase = true;
+      let visible = 0;
+      let phase1Ms = 0;
+      let lastMdRender = 0;
+
+      function addCursor(parent) {
+        if (cursorEl) cursorEl.remove();
+        cursorEl = document.createElement('span');
+        cursorEl.textContent = '\u258c';
+        cursorEl.style.cssText = 'display:inline;animation:blink 0.9s step-end infinite;color:var(--accent);font-weight:300;';
+        parent.appendChild(cursorEl);
+      }
+
+      function step(ts) {
+        if (!animFrame) return;
+        const elapsed = ts - phase1Ms;
+
+        if (plainPhase) {
+          /* Phase 1 — 纯文本逐字，每帧检查累积时间 */
+          const canShow = Math.floor(elapsed / perCharMs);
+          if (canShow > visible) {
+            visible = Math.min(canShow, plainThreshold);
+            bubble.textContent = response.substring(0, visible);
+            addCursor(bubble);
+          }
+          if (visible >= plainThreshold) {
+            plainPhase = false;
+            phase1Ms = ts; // 重置基准，让 Phase 2 从此刻开始计时
+          }
+          document.getElementById('chatArea').scrollTop = document.getElementById('chatArea').scrollHeight;
+          animFrame = requestAnimationFrame(step);
+          return;
+        }
+
+        /* Phase 2 — Markdown 增量渲染，每 42ms 刷新一次 */
+        visible = plainThreshold + Math.floor(elapsed / perCharMs);
+        if (visible >= totalLen) {
+          /* 完成 — 全量渲染 */
+          if (cursorEl) { cursorEl.remove(); cursorEl = null; }
+          cancelAnimationFrame(animFrame); animFrame = null;
+          const md = renderMarkdown(response, { incremental: false });
+          bubble.innerHTML = '';
+          if (md) bubble.appendChild(md); else bubble.textContent = response;
+
+          const elap = ((Date.now() - startTime) / 1000).toFixed(1);
+          const tt = document.createElement('div');
+          tt.style.cssText = 'text-align:right;font-size:12px;color:var(--text-muted);margin-top:6px;';
+          tt.textContent = '生成耗时 ' + elap + 's';
+          bubble.appendChild(tt);
+
+          const actions = document.createElement('div'); actions.className = 'msg-actions';
+          actions.innerHTML = '<button data-action="copy-msg" title="复制消息" aria-label="复制消息">📋</button>' +
+            '<button data-action="regenerate" title="重新生成" aria-label="重新生成">🔄</button>' +
+            '<button title="有用" aria-label="有用" data-action="thumbs-up">👍</button>' +
+            '<button title="无用" aria-label="无用" data-action="thumbs-down">👎</button>';
+          bubble.appendChild(actions);
+
+          if (renderCleanupFn) { renderCleanupFn(); renderCleanupFn = null; }
+          const old = document.getElementById('streamingMsg');
+          if (old) old.removeAttribute('id');
+          isSending = false;
+          sendBtn.disabled = false;
+          input.disabled = false;
+          document.getElementById('chatArea').scrollTop = document.getElementById('chatArea').scrollHeight;
+          return;
+        }
+
+        /* 节流渲染 Markdown */
+        const now = Date.now();
+        if (now - lastMdRender >= 42) {
+          lastMdRender = now;
+          const partial = response.substring(0, visible);
+          if (cursorEl) { cursorEl.remove(); cursorEl = null; }
+          const md = renderMarkdown(partial, { incremental: true });
+          if (md) { bubble.innerHTML = ''; bubble.appendChild(md); addCursor(bubble); }
+        }
+
+        document.getElementById('chatArea').scrollTop = document.getElementById('chatArea').scrollHeight;
+        animFrame = requestAnimationFrame(step);
+      }
+
+      /* ── 延迟 1s 后开始 ── */
+      setTimeout(() => {
+        phase1Ms = performance.now();
+        animFrame = requestAnimationFrame(step);
+      }, 1000);
+    }
+
+    /* ═════════════════════════════════════════════════════════════
+       SSE 流式消费核心 v3
+       - try/finally 防止 isSending 永久死锁
+       - [DONE] streamDone 标志位正确退出
+       - \r?\n 行分隔符兼容
+       - 增量渲染 + 错误边界
+       ═════════════════════════════════════════════════════════════ */
+    async function sendMessage(replaceMsgEl = null) {
       const input = document.getElementById('chatInput');
       const text = input.value.trim();
       if (!text || isSending) return;
 
+      // ── 重置状态 ──
+      lastRenderedLength = 0;
+      if (renderCleanupFn) { renderCleanupFn(); renderCleanupFn = null; }
+
       isSending = true;
-      document.getElementById('sendBtn').disabled = true;
+      const sendBtn = document.getElementById('sendBtn');
+      sendBtn.disabled = true;
       input.disabled = true;
 
-      appendMessage('user', text);
-      input.value = ''; input.style.height = 'auto';
-
-      // Create placeholder
-      const startTime = Date.now();
-      const assistEl = document.createElement('div'); assistEl.className = 'msg assistant'; assistEl.id = 'streamingMsg';
-      assistEl.innerHTML = '<div class="bubble"><em style="color:#8FA68E">正在思考 0.0s...</em></div>';
-      document.getElementById('chatFlow').appendChild(assistEl);
-
-      // Timer
-      thinkingTimer = setInterval(() => {
-        const el = document.getElementById('streamingMsg');
-        if (!el) { clearInterval(thinkingTimer); return; }
-        const t = el.querySelector('em');
-        if (t) t.textContent = '正在思考 ' + ((Date.now()-startTime)/1000).toFixed(1) + 's...';
-      }, 100);
-
-      streamAbortCtl = new AbortController();
-
       try {
-        const res = await fetch(API_BASE+'/api/chat/stream', {
-          method: 'POST', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ message: text, session_id: 'sess-'+Date.now() }),
-          signal: streamAbortCtl.signal
-        });
-        if (!res.ok) throw new Error('stream_unavailable');
+        // 重新生成模式：先删除旧的 AI 回复，避免历史消息重复堆积
+        if (replaceMsgEl) replaceMsgEl.remove();
+        appendMessage('user', text, false);
+        input.value = ''; input.style.height = 'auto';
 
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let fullText = '', partialLine = '', hasPing = false;
+        const startTime = Date.now();
+        const assistEl = document.createElement('div');
+        assistEl.className = 'msg assistant'; assistEl.id = 'streamingMsg';
+        assistEl.setAttribute('role', 'status');
+        assistEl.setAttribute('aria-live', 'assertive');
+        assistEl.setAttribute('aria-label', 'AI 正在回复');
+        assistEl.innerHTML = '<div class="bubble"><em style="color:var(--accent)">正在思考 0.0s...</em></div>';
+        document.getElementById('chatFlow').appendChild(assistEl);
 
-        while (true) {
-          let readResult;
-          if (!hasPing) {
-            readResult = await Promise.race([reader.read(), new Promise(r=>setTimeout(()=>r({timeout:true}),25000))]);
-            if (readResult.timeout) { reader.cancel(); throw new Error('timeout'); }
-          } else { readResult = await reader.read(); }
+        // 思考计时器
+        thinkingTimer = setInterval(() => {
+          const el = document.getElementById('streamingMsg');
+          if (!el) { clearInterval(thinkingTimer); thinkingTimer = null; return; }
+          const t = el.querySelector('em');
+          if (t) t.textContent = '正在思考 ' + ((Date.now() - startTime) / 1000).toFixed(1) + 's...';
+        }, 100);
 
-          const { value, done } = readResult;
-          if (done) break;
-          const chunk = decoder.decode(value, {stream:true});
-          const lines = (partialLine+chunk).split('\n'); partialLine = lines.pop()||'';
+        streamAbortCtl = new AbortController();
 
-          for (const line of lines) {
-            if (!line.startsWith('data: ')) continue;
-            const data = line.slice(6).trim();
-            if (data==='[DONE]') break;
-            if (data==='[PING]') { hasPing=true; continue; }
-            if (data.startsWith('[ERROR]')) throw new Error(data.slice(7).trim()||'stream error');
-            if (data.startsWith('[')) continue;
-            try { fullText += JSON.parse(data); } catch(_) { fullText += data; }
-            // Update bubble live
-            if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer=null; }
-            const bubble = assistEl.querySelector('.bubble');
-            const md = renderMarkdown(fullText);
+        try {
+          const res = await fetch(API_BASE + '/api/chat/stream', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text, session_id: 'sess-' + Date.now() }),
+            signal: streamAbortCtl.signal
+          });
+          if (!res.ok) throw new Error('stream_unavailable');
+
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder('utf-8');
+          let fullText = '', partialLine = '', hasPing = false, streamDone = false;
+
+          while (!streamDone) {
+            let readResult;
+            if (!hasPing) {
+              readResult = await Promise.race([
+                reader.read(),
+                new Promise(r => setTimeout(() => r({ timeout: true }), 25000))
+              ]);
+              if (readResult.timeout) { reader.cancel(); throw new Error('timeout'); }
+            } else { readResult = await reader.read(); }
+
+            const { value, done } = readResult;
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+
+            const lines = (partialLine + chunk).split(/\r?\n/);
+            partialLine = lines.pop() || '';
+
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              const data = line.slice(6).trim();
+
+              if (data === '[DONE]') { streamDone = true; break; }
+              if (data === '[PING]') { hasPing = true; continue; }
+              if (data.startsWith('[ERROR]')) throw new Error(data.slice(7).trim() || 'stream error');
+              if (data.startsWith('[')) continue;
+              try { fullText += JSON.parse(data); } catch (_) { fullText += data; }
+
+              // 收到内容后取消思考计时器并增量渲染
+              if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer = null; }
+              const bubble = assistEl.querySelector('.bubble');
+              const md = renderMarkdown(fullText, { incremental: true });
+              if (md) {
+                bubble.innerHTML = ''; bubble.appendChild(md);
+                const tt = document.createElement('div');
+                tt.className = 'thinking-time';
+                tt.style.cssText = 'text-align:right;font-size:12px;color:var(--text-muted);margin-top:6px;';
+                tt.textContent = '思考耗时 ' + ((Date.now() - startTime) / 1000).toFixed(1) + 's';
+                bubble.appendChild(tt);
+              }
+            }
+          }
+
+          // 最终全量渲染（保证增量残余正确展示）
+          const bubble = assistEl.querySelector('.bubble');
+          const md = renderMarkdown(fullText);
+          if (md) {
             bubble.innerHTML = ''; bubble.appendChild(md);
-            const elapsed = ((Date.now()-startTime)/1000).toFixed(1);
-            const tt = document.createElement('div'); tt.style.cssText = 'text-align:right;font-size:12px;color:#6B7B8C;margin-top:6px;';
-            tt.textContent = '思考耗时 '+elapsed+'s'; bubble.appendChild(tt);
+            const tt = document.createElement('div');
+            tt.className = 'thinking-time';
+            tt.style.cssText = 'text-align:right;font-size:12px;color:var(--text-muted);margin-top:6px;';
+            tt.textContent = '思考耗时 ' + ((Date.now() - startTime) / 1000).toFixed(1) + 's';
+            bubble.appendChild(tt);
+          }
+
+          // 添加操作按钮
+          const b = assistEl.querySelector('.bubble');
+          const actions = document.createElement('div'); actions.className = 'msg-actions';
+          actions.innerHTML = '<button data-action="copy-msg" title="复制消息" aria-label="复制消息">📋</button>' +
+            '<button data-action="regenerate" title="重新生成" aria-label="重新生成回复">🔄</button>' +
+            '<button title="有用" aria-label="有用" data-action="thumbs-up">👍</button>' +
+            '<button title="无用" aria-label="无用" data-action="thumbs-down">👎</button>';
+          b.appendChild(actions);
+        } catch (err) {
+          const bubble = assistEl.querySelector('.bubble');
+          if (err.name === 'AbortError') {
+            bubble.innerHTML = '<em style="color:var(--accent)">已取消生成</em>';
+          } else {
+            bubble.innerHTML = '<em style="color:#C66">' +
+              (err.message || '请求失败') + '</em>';
+          assistEl.setAttribute('role', 'alert');
+          assistEl.setAttribute('aria-live', 'assertive');
           }
         }
-
-        // Add actions
-        const bubble = assistEl.querySelector('.bubble');
-        const actions = document.createElement('div'); actions.className = 'msg-actions';
-        actions.innerHTML = '<button onclick="copyMsg(this)" title="复制">📋</button><button onclick="regenerateMsg(this)" title="重新生成">🔄</button><button title="有用">👍</button><button title="无用">👎</button>';
-        bubble.appendChild(actions);
-      } catch (err) {
-        const bubble = assistEl.querySelector('.bubble');
-        if (err.name==='AbortError') bubble.innerHTML = '<em style="color:#8FA68E">已取消</em>';
-        else bubble.innerHTML = '<em style="color:#C66">'+(err.message||'请求失败')+'</em>';
+      } finally {
+        // 确保状态一定恢复（即使抛异常）
+        if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer = null; }
+        if (renderCleanupFn) { renderCleanupFn(); renderCleanupFn = null; }
+        const old = document.getElementById('streamingMsg');
+        if (old) old.removeAttribute('id');
+        streamAbortCtl = null;
+        isSending = false;
+        document.getElementById('sendBtn').disabled = false;
+        input.disabled = false;
+        input.focus();
       }
-
-      // Cleanup
-      if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer=null; }
-      const old = document.getElementById('streamingMsg');
-      if (old) old.removeAttribute('id');
-      streamAbortCtl = null;
-      isSending = false;
-      document.getElementById('sendBtn').disabled = false;
-      input.disabled = false;
-      input.focus();
     }
-  </script>
+
+    /* ═══════════════════════ 浏览器兼容性检测 ═══════════════════════ */
+    (function checkCompatible() {
+      const ua = navigator.userAgent;
+      const browsers = {
+        chrome: /Chrome\/(\d+)/.exec(ua),
+        firefox: /Firefox\/(\d+)/.exec(ua),
+        safari: /Version\/(\d+).*Safari/.exec(ua),
+        edge: /Edg\/(\d+)/.exec(ua)
+      };
+      const mins = { chrome: 90, firefox: 88, safari: 15.4, edge: 90 };
+      let compatWarn = '';
+      for (const [b, v] of Object.entries(mins)) {
+        if (browsers[b] && parseInt(browsers[b][1]) < v) {
+          const msg = '[Compat] ' + b + ' ' + browsers[b][1] + ' < ' + v + ' — 部分功能可能异常。推荐升级浏览器。';
+          console.warn(msg);
+          compatWarn += msg + '\n';
+        }
+      }
+      if (compatWarn) {
+        const banner = document.getElementById('cdnFailBanner');
+        banner.style.display = 'block';
+        banner.textContent = '⚠️ 浏览器版本过低，部分功能可能异常。推荐升级浏览器。';
+      }
+    })();
+    /*
+       所有事件通过程序化 addEventListener 绑定，兼容 CSP nonce 模式
+       （无 'unsafe-inline' 的 script-src 策略）。
+       动态生成的按钮（代码块复制、消息操作）使用事件委托在 #chatFlow 层统一处理。 */
+    document.addEventListener('DOMContentLoaded', () => {
+      const input = document.getElementById('chatInput');
+      const sendBtn = document.getElementById('sendBtn');
+      const chatFlow = document.getElementById('chatFlow');
+
+      // ── 发送按钮 ──
+      sendBtn.addEventListener('click', () => sendMessage(null));
+
+      // ── 建议问题按钮（模拟流式响应）──
+      document.querySelectorAll('.suggest-btn').forEach(btn => {
+        btn.addEventListener('click', () => simulateStream(btn.dataset.question));
+      });
+
+      // ── 输入框键盘事件 ──
+      input.addEventListener('keydown', handleInputKey);
+      input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+      });
+
+      // ── 事件委托：代码块复制 + 消息操作按钮 ──
+      chatFlow.addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        const action = btn.getAttribute('data-action');
+        switch (action) {
+          case 'copy-code': copyCode(btn); break;
+          case 'copy-msg':  copyMsg(btn); break;
+          case 'regenerate': regenerateMsg(btn); break;
+          // thumbs-up / thumbs-down 留空，由使用者扩展
+        }
+      });
+    });
+  
+</script>
 </body>
 </html>

@@ -147,7 +147,7 @@ def diagnose_framework():
 
 
 def diagnose_dependencies():
-    """检测前端依赖库版本。"""
+    """检测前端依赖库版本 + CDN 可用性。"""
     print("-" * 40)
     print("前端依赖库检测")
     cwd = os.getcwd()
@@ -164,6 +164,32 @@ def diagnose_dependencies():
             print("  读取失败")
     else:
         print("  未找到 package.json（非 Node.js 项目）")
+
+    # CDN 可用性检测
+    print()
+    print("CDN 可用性检测:")
+    cdn_urls = {
+        "marked.js": "https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js",
+        "highlight.js": "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js",
+        "DOMPurify": "https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js",
+        "KaTeX CSS": "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css",
+        "KaTeX JS": "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js",
+        "Mermaid": "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js",
+    }
+    import urllib.request
+    for name, url in cdn_urls.items():
+        try:
+            req = urllib.request.Request(url, method="HEAD")
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                print(f"  {name}: ✅ HTTP {resp.status}")
+        except Exception as e:
+            # HEAD 可能被 WAF/CDN 拒绝（403/405）→ 用 GET 重试
+            try:
+                req2 = urllib.request.Request(url, method="GET")
+                with urllib.request.urlopen(req2, timeout=5) as resp2:
+                    print(f"  {name}: ⚠️ HEAD 不可达 GET ✅ HTTP {resp2.status}")
+            except Exception:
+                print(f"  {name}: ❌ 不可达 ({e})")
     print()
 
 
@@ -220,18 +246,36 @@ def test_real_sse(endpoint="http://127.0.0.1:18765/api/chat/stream", test_text="
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             lines = []
-            for _ in range(20):
+            max_lines = 500  # 防止无限循环
+            lines_read = 0
+            reached_done = False
+            while lines_read < max_lines:
                 line = resp.readline()
                 if not line:
                     break
-                lines.append(line.decode("utf-8").strip())
+                try:
+                    decoded = line.decode("utf-8").strip()
+                except UnicodeDecodeError:
+                    # 后端可能发送了非 UTF-8 字节 → 报告错误来源而非崩溃
+                    print(f"  ⚠️ 行 #{lines_read + 1} 解码失败 (非 UTF-8): {line[:40].hex()}")
+                    decoded = f"[解码失败]"
+                lines.append(decoded)
+                lines_read += 1
+                if decoded == 'data: [DONE]':
+                    reached_done = True
+                    break
+                # 也检测内联 [DONE]
+                if '[DONE]' in decoded and not decoded.startswith('data: '):
+                    # 继续读，用显式的 data: [DONE] 判断
+                    pass
 
             full_text = "\n".join(lines)
             has_ufffd = "�" in full_text
 
             print(f"  状态码: {resp.status}")
             print(f"  Content-Type: {resp.headers.get('Content-Type', 'N/A')}")
-            print(f"  收到 {len(lines)} 行 SSE 数据")
+            print(f"  读取 {lines_read} 行 SSE 数据（max={max_lines}）")
+            print(f"  到达 [DONE]: {'✅' if reached_done else '⚠️ 未在 {max_lines} 行内到达'}")
             print(f"  包含 U+FFFD: {'❌ 是 — 乱码!' if has_ufffd else '✅ 否'}")
 
             if has_ufffd:

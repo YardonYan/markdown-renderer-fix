@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.0.0-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![OpenClaw Skill](https://img.shields.io/badge/OpenClaw-Skill-%237BA7A6)](https://github.com/nicepkg/openclaw)
 

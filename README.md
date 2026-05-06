@@ -54,7 +54,7 @@
 
 ## 🚀 快速开始
 
-> 💡 **在线演示**: [GitHub Pages Demo](https://yardonyan.github.io/markdown-renderer-fix)（部署后更新链接）
+> 💡 **在线演示**: [GitHub Pages Demo](https://yardonyan.github.io/markdown-renderer-fix/)
 
 ```bash
 # 1. 克隆到 OpenClaw 技能目录

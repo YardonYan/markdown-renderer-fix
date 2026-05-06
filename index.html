@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown 渲染示范 | markdown-renderer-fix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+:root {
+  --pond-teal: #7BA7A6; --pond-teal-light: #9BC4C3; --pond-teal-dark: #5E8E8D;
+  --lotus-pink: #E8D5E0; --lotus-pink-deep: #D4B8C8;
+  --willow-green: #8FA68E; --willow-green-light: #A8C4A7;
+  --afternoon-gold: #F5E6D3; --afternoon-gold-deep: #E8D4B8;
+  --shadow-blue: #6B7B8C; --bridge-wood: #C4A77D;
+  --iris-purple: #9B7CB6; --poppy-red: #E07A5F;
+  --cream: #FAF7F2; --paper: #F5F0EB;
+  --ink: #2C2C2C; --ink-light: #5A5A5A; --ink-muted: #8A8A8A;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:'Cormorant Garamond','Noto Serif SC',Georgia,serif;background:var(--cream);color:var(--ink);line-height:1.7;min-height:100vh}
+
+/* Hero */
+.hero{background:linear-gradient(135deg,var(--pond-teal) 0%,var(--willow-green) 50%,var(--shadow-blue) 100%);padding:72px 24px 52px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle at 30% 70%,rgba(245,230,211,0.15) 0%,transparent 50%),radial-gradient(circle at 70% 30%,rgba(232,213,224,0.12) 0%,transparent 45%);animation:heroFloat 20s ease-in-out infinite}
+@keyframes heroFloat{0%,100%{transform:translate(0,0) rotate(0deg)}33%{transform:translate(30px,-20px) rotate(1deg)}66%{transform:translate(-20px,15px) rotate(-1deg)}}
+.hero-content{position:relative;z-index:1}
+.hero h1{font-family:'Playfair Display','Noto Serif SC',serif;font-size:clamp(2rem,5vw,3.2rem);font-weight:600;color:#fff;letter-spacing:0.02em;margin-bottom:12px;text-shadow:0 2px 20px rgba(0,0,0,0.15)}
+.hero .subtitle{font-size:1.2rem;color:rgba(255,255,255,0.85);max-width:560px;margin:0 auto;font-style:italic}
+.hero .badge{display:inline-block;margin-top:20px;padding:8px 20px;background:rgba(255,255,255,0.15);backdrop-filter:blur(10px);border-radius:50px;font-size:0.9rem;color:rgba(255,255,255,0.9);border:1px solid rgba(255,255,255,0.2)}
+
+/* Filter */
+.filter-bar{display:flex;justify-content:center;gap:10px;padding:28px 24px;flex-wrap:wrap;background:var(--paper);border-bottom:1px solid rgba(123,167,166,0.15);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}
+.filter-btn{padding:9px 22px;border:1px solid var(--pond-teal-light);border-radius:50px;background:transparent;color:var(--pond-teal-dark);font-family:'Cormorant Garamond',serif;font-size:0.95rem;font-weight:500;cursor:pointer;transition:all 0.3s ease}
+.filter-btn:hover,.filter-btn.active{background:var(--pond-teal);color:#fff;border-color:var(--pond-teal);transform:translateY(-2px);box-shadow:0 4px 15px rgba(123,167,166,0.3)}
+
+/* Gallery */
+.gallery{max-width:1400px;margin:0 auto;padding:44px 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:24px}
+@media(max-width:768px){.gallery{grid-template-columns:1fr;padding:24px 16px}.hero{padding:56px 20px 36px}}
+
+/* Card */
+.card{background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.05);transition:all 0.45s cubic-bezier(0.4,0,0.2,1);cursor:pointer;border:1px solid rgba(123,167,166,0.1);position:relative}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--pond-teal),var(--willow-green),var(--lotus-pink-deep));opacity:0;transition:opacity 0.3s}
+.card:hover::before{opacity:1}
+.card:hover{transform:translateY(-5px);box-shadow:0 12px 36px rgba(0,0,0,0.08)}
+.card.expanded{grid-column:1/-1;cursor:default}
+.card.expanded:hover{transform:none}
+
+/* Header */
+.card-header{padding:26px 26px 14px;position:relative}
+.card-tag{display:inline-block;padding:3px 12px;border-radius:20px;font-size:0.75rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:10px}
+.card-tag.text{background:rgba(123,167,166,0.12);color:var(--pond-teal-dark)}
+.card-tag.code{background:rgba(107,123,140,0.12);color:var(--shadow-blue)}
+.card-tag.table{background:rgba(155,124,182,0.12);color:var(--iris-purple)}
+.card-tag.math{background:rgba(224,122,95,0.12);color:var(--poppy-red)}
+.card-tag.diagram{background:rgba(143,166,142,0.12);color:var(--willow-green)}
+.card-tag.mixed{background:rgba(196,167,125,0.15);color:var(--bridge-wood)}
+.card-title{font-family:'Playfair Display','Noto Serif SC',serif;font-size:1.3rem;font-weight:600;color:var(--ink);margin-bottom:6px}
+.card-desc{font-size:0.95rem;color:var(--ink-muted);font-style:italic}
+
+/* Preview */
+.card-preview{padding:0 26px 26px;max-height:180px;overflow:hidden;position:relative;transition:max-height 0.45s ease}
+.card-preview::after{content:'';position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(transparent,#fff);pointer-events:none}
+.card.expanded .card-preview{display:none}
+
+/* Full */
+.card-full{display:none;padding:0 26px 26px;animation:fadeUp 0.4s ease}
+.copy-card-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 16px;margin-top:14px;border:1px solid rgba(123,167,166,0.35);border-radius:20px;background:rgba(123,167,166,0.08);color:var(--pond-teal);font-size:0.8rem;cursor:pointer;transition:all 0.2s}
+.copy-card-btn:hover{background:rgba(123,167,166,0.18);border-color:rgba(123,167,166,0.55)}
+.card.expanded .card-full{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* Close */
+.close-btn{display:none;position:absolute;top:18px;right:18px;width:32px;height:32px;border-radius:50%;border:1px solid rgba(123,167,166,0.3);background:#fff;color:var(--pond-teal);font-size:1.1rem;cursor:pointer;transition:all 0.2s;z-index:10;align-items:center;justify-content:center;line-height:1}
+.card.expanded .close-btn{display:flex}
+.close-btn:hover{background:var(--pond-teal);color:#fff;border-color:var(--pond-teal)}
+
+/* Markdown Content */
+.md-content{font-size:1.02rem;line-height:1.8}
+.md-content h1{font-family:'Playfair Display','Noto Serif SC',serif;font-size:1.7rem;font-weight:600;color:var(--pond-teal-dark);margin:24px 0 14px;padding-bottom:6px;border-bottom:2px solid var(--lotus-pink)}
+.md-content h2{font-family:'Playfair Display','Noto Serif SC',serif;font-size:1.3rem;font-weight:600;color:var(--willow-green);margin:20px 0 10px}
+.md-content h3{font-family:'Playfair Display','Noto Serif SC',serif;font-size:1.1rem;font-weight:600;color:var(--shadow-blue);margin:16px 0 8px}
+.md-content p{margin-bottom:0.9em;text-align:justify}
+.md-content p:last-child{margin-bottom:0}
+.md-content strong{font-weight:600;color:var(--ink)}
+.md-content em{font-style:italic;color:var(--ink-light)}
+.md-content a{color:var(--pond-teal);text-decoration:none;border-bottom:1px solid var(--pond-teal-light);transition:all 0.2s}
+.md-content a:hover{color:var(--pond-teal-dark);border-bottom-color:var(--pond-teal-dark)}
+.md-content ul,.md-content ol{padding-left:1.7em;margin-bottom:0.9em}
+.md-content li{margin-bottom:0.4em}
+.md-content ul li::marker{color:var(--pond-teal)}
+.md-content blockquote{border-left:4px solid var(--pond-teal);margin:16px 0;padding:14px 22px;background:rgba(123,167,166,0.05);border-radius:0 10px 10px 0;font-style:italic;color:var(--ink-light)}
+.md-content blockquote p:last-child{margin-bottom:0}
+.md-content table{width:100%;border-collapse:collapse;margin:16px 0;font-size:0.92rem;border-radius:10px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.05)}
+.md-content th{background:linear-gradient(135deg,var(--pond-teal),var(--pond-teal-dark));color:#fff;font-weight:600;padding:12px 14px;text-align:left}
+.md-content td{padding:10px 14px;border-bottom:1px solid rgba(123,167,166,0.12)}
+.md-content tr:nth-child(even){background:rgba(123,167,166,0.03)}
+.md-content tr:hover{background:rgba(123,167,166,0.07)}
+.md-content code{background:rgba(107,123,140,0.1);padding:2px 7px;border-radius:5px;font-family:'SFMono-Regular',Consolas,'Liberation Mono',monospace;font-size:0.88em;color:var(--shadow-blue)}
+.md-content hr{border:none;height:2px;background:linear-gradient(90deg,transparent,var(--lotus-pink),transparent);margin:28px 0}
+.md-content img{max-width:100%;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,0.08);margin:14px 0}
+.katex-display{margin:20px 0;overflow-x:auto}
+
+/* Code blocks */
+.code-block-wrapper{margin:16px 0;border-radius:12px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,0.06)}
+.code-block-header{display:flex;justify-content:space-between;align-items:center;padding:8px 18px;background:#2d2d2d;border-bottom:1px solid rgba(255,255,255,0.06)}
+.code-lang{font-size:0.78rem;color:var(--pond-teal-light);text-transform:uppercase;font-weight:600;letter-spacing:0.04em}
+.copy-btn{padding:5px 12px;border:1px solid rgba(255,255,255,0.12);border-radius:6px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.65);cursor:pointer;font-size:0.78rem;font-family:inherit;transition:all 0.2s}
+.copy-btn:hover{background:rgba(255,255,255,0.12);color:#fff}
+.code-block-wrapper pre{margin:0;padding:18px;overflow-x:auto;background:#1e1e1e}
+.code-block-wrapper pre code{background:transparent;padding:0;font-family:'SFMono-Regular',Consolas,monospace;font-size:0.87rem;line-height:1.6;color:#d4d4d4}
+
+/* Footer */
+.footer{text-align:center;padding:40px 24px;background:var(--paper);border-top:1px solid rgba(123,167,166,0.15)}
+.footer p{color:var(--ink-muted);font-style:italic;font-size:0.95rem}
+.footer .heart{color:var(--poppy-red)}
+::-webkit-scrollbar{width:7px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--pond-teal-light);border-radius:4px}
+
+    /* Footer */
+    .site-footer { margin-top: 48px; padding: 20px 0; border-top: 1px solid var(--border); text-align: center; }
+    .footer-inner { display: flex; align-items: center; justify-content: center; gap: 24px; flex-wrap: wrap; font-size: 14px; color: var(--text-muted); }
+    .footer-dev strong { color: var(--text-heading); }
+    .github-link { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); text-decoration: none; transition: color 0.2s; font-weight: 500; }
+    .github-link:hover { color: var(--accent); }
+    .github-link svg { flex-shrink: 0; opacity: 0.85; }
+    .github-link:hover svg { opacity: 1; }
+
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-content">
+    <h1>Markdown 渲染示范</h1>
+    <p class="subtitle">从结构到美学 —— 每一个元素都精心呈现</p>
+    <span class="badge">📝 markdown-renderer-fix Skill</span>
+  </div>
+</header>
+
+<nav class="filter-bar" id="filterBar">
+  <button class="filter-btn active" data-filter="all">全部</button>
+  <button class="filter-btn" data-filter="text">文本排版</button>
+  <button class="filter-btn" data-filter="code">代码展示</button>
+  <button class="filter-btn" data-filter="table">表格数据</button>
+  <button class="filter-btn" data-filter="math">数学公式</button>
+  <button class="filter-btn" data-filter="diagram">图表绘制</button>
+  <button class="filter-btn" data-filter="mixed">综合文档</button>
+</nav>
+
+<main class="gallery" id="gallery"></main>
+
+<footer class="footer">
+  <p>使用 markdown-renderer-fix Skill 构建 <span class="heart">♥</span> 优雅渲染，从细节开始</p>
+</footer>
+
+<script>
+/* ═══════════════════════ 浏览器兼容性检测 ═══════════════════════ */
+(function() {
+  var ua = navigator.userAgent, browsers = {
+    chrome: /Chrome\/(\d+)/.exec(ua),
+    firefox: /Firefox\/(\d+)/.exec(ua),
+    safari: /Version\/(\d+).*Safari/.exec(ua),
+    edge: /Edg\/(\d+)/.exec(ua)
+  }, mins = {chrome:90, firefox:88, safari:15.4, edge:90};
+  for (var b in mins) {
+    if (browsers[b] && parseInt(browsers[b][1]) < mins[b]) {
+      console.warn('[Compat] ' + b + ' ' + browsers[b][1] + ' < ' + mins[b] + ' — 部分功能可能异常');
+    }
+  }
+})();
+/* ═══════════════════════ Data ═══════════════════════ */
+const cards = [
+  {
+    id:'text-basic', cat:'text', tag:'文本排版', title:'文章与段落', desc:'标题层级、引用、强调、链接与分割线',
+    md:`# 春日随笔 —— 生命的律动
+
+## 一、季节的呼唤
+
+当第一缕**温暖的阳光**穿透冬日的阴霾，我们知道，春天来了。这是个充满希望的季节，*万物复苏*，大地重新焕发生机。
+
+> "春天像刚落地的娃娃，从头到脚都是新的，它生长着。"
+> —— 朱自清《春》
+
+## 二、春日活动指南
+
+在这个美好的季节里，我们可以做许多有意义的事情：
+
+- **去公园散步** — 呼吸新鲜空气，感受自然之美
+- **欣赏盛开的花** — 樱花、桃花、杏花竞相开放
+- **沐浴温暖阳光** — 补充维生素D，改善心情和睡眠
+
+### 阅读推荐
+
+1. *《瓦尔登湖》* — 梭罗，感受隐居湖畔的宁静
+2. **《人间草木》** — 汪曾祺，体味草木人间情
+3. *《春》* — 朱自清，重温课本里的春天
+
+## 三、春日诗词
+
+> 春眠不觉晓，处处闻啼鸟。
+> 夜来风雨声，花落知多少。
+> —— 孟浩然《春晓》
+
+### 相关链接
+
+- [中国气象局 - 春季气候](https://www.cma.gov.cn)
+- [植物智 - 春季花卉图鉴](https://www.iplant.cn)
+
+---
+
+*愿每个人都能在春天找到属于自己的那份美好。*`
+  },
+  {
+    id:'lists', cat:'text', tag:'文本排版', title:'列表结构', desc:'有序列表、无序列表与任务清单',
+    md:`# 项目开发任务清单
+
+## 一、本周冲刺任务
+
+### 已完成 ✓
+- [x] 编写需求分析文档
+- [x] 确定技术栈选型（Python + FastAPI）
+- [x] 搭建开发环境与 CI/CD 流水线
+- [x] 初始化 Git 仓库，配置 commit lint
+
+### 进行中 🔄
+- [ ] 设计数据库 ER 图与表结构
+- [ ] 编写 RESTful API 接口文档
+- [ ] 实现用户认证模块（JWT + OAuth2）
+
+### 待开始 ⏳
+- [ ] 前端页面组件开发
+- [ ] 单元测试与集成测试覆盖
+- [ ] 部署脚本与 Dockerfile 编写
+
+## 二、优先级矩阵
+
+### 🔴 P0 — 阻塞性（本周内）
+1. **数据库设计定稿** — 所有功能的基础依赖
+2. **API 文档定稿** — 前后端协作的契约
+3. **认证模块上线** — 安全基础，不可延后
+
+### 🟡 P1 — 重要（下周）
+1. *核心业务流程实现*
+2. *数据迁移脚本与回滚方案*
+3. *基础监控与告警接入*
+
+### 🟢 P2 — 优化（后续迭代）
+- 界面动效与交互动画
+- 缓存策略与查询性能调优
+- 日志收集与分析面板
+
+> ⚠️ **重要提醒**：所有代码须通过 Code Review 后合并。
+> 提交信息请遵循 [Conventional Commits](https://www.conventionalcommits.org) 规范。`
+  },
+  {
+    id:'code', cat:'code', tag:'代码展示', title:'代码高亮渲染', desc:'Python、JavaScript、SQL、CSS 多语言语法高亮',
+    md:`# 代码块渲染示例
+
+## Python 数据处理
+
+\`\`\`python
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+# 读取销售数据
+df = pd.read_csv('sales_2024.csv')
+
+# 数据清洗
+df.dropna(subset=['amount', 'date'], inplace=True)
+df['date'] = pd.to_datetime(df['date'])
+df['amount'] = df['amount'].astype(float)
+
+# 按月汇总统计
+monthly = df.groupby(df['date'].dt.to_period('M')).agg({
+    'amount': ['sum', 'mean', 'count']
+}).round(2)
+
+print(f"数据范围: {df['date'].min().date()} ~ {df['date'].max().date()}")
+print(f"总销售额: ¥{df['amount'].sum():,.2f}")
+print(f"月均交易: {len(monthly)} 个月, 月均 ¥{df['amount'].mean():,.2f}")
+\`\`\`
+
+## JavaScript 异步处理
+
+\`\`\`javascript
+// 并行获取用户数据
+async function fetchUserData(userIds) {
+  try {
+    const promises = userIds.map(id =>
+      fetch(\`/api/v1/users/\${id}\`).then(r => r.json())
+    );
+    const users = await Promise.all(promises);
+    return users.map(u => ({
+      id: u.id, name: u.name,
+      email: u.email, avatar: u.avatar_url
+    }));
+  } catch (err) {
+    console.error('获取用户数据失败:', err);
+    throw new Error('数据加载失败，请稍后重试');
+  }
+}
+
+fetchUserData([101, 102, 103]).then(users =>
+  console.log(\`加载了 \${users.length} 位用户\`)
+);
+\`\`\`
+
+## SQL 查询优化
+
+\`\`\`sql
+-- 查询近 30 天活跃用户 TOP 100
+WITH active_users AS (
+  SELECT user_id,
+    COUNT(*) AS login_count,
+    MAX(login_time) AS last_login
+  FROM user_logins
+  WHERE login_time >= DATEADD(day, -30, GETDATE())
+  GROUP BY user_id
+  HAVING COUNT(*) >= 5
+)
+SELECT u.username, u.email,
+  a.login_count, a.last_login
+FROM active_users a
+JOIN users u ON a.user_id = u.id
+ORDER BY a.login_count DESC
+LIMIT 100;
+\`\`\`
+
+## CSS 动效设计
+
+\`\`\`css
+.gradient-card {
+  background: linear-gradient(
+    135deg, #7BA7A6 0%, #8FA68E 100%
+  );
+  transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.gradient-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+}
+\`\`\``
+  },
+  {
+    id:'sports', cat:'table', tag:'表格数据', title:'体育赛事成绩', desc:'复杂数据表格，含合并表头、多级分类与数据汇总',
+    md:`# 2024 年秋季校运会成绩总览
+
+## 一、田径项目
+
+### 男子 100 米决赛
+
+| 名次 | 姓名 | 班级 | 成绩 | 风速 | 备注 |
+|:----:|:-----|:-----|:-----|:----:|:-----|
+| 🥇 | 张伟 | 高三(2)班 | **10.82s** | +1.2 | 🎉 破校纪录 |
+| 🥈 | 李明 | 高三(5)班 | 11.05s | +0.8 | — |
+| 🥉 | 王强 | 高二(1)班 | 11.23s | +1.5 | — |
+| 4 | 刘洋 | 高三(3)班 | 11.41s | +0.5 | — |
+| 5 | 陈杰 | 高二(4)班 | 11.56s | +1.0 | — |
+
+> 📊 去年纪录为 **10.95s**（陈浩，2023），今年提升 0.13s。
+
+### 女子 100 米决赛
+
+| 名次 | 姓名 | 班级 | 成绩 | 风速 | 备注 |
+|:----:|:-----|:-----|:-----|:----:|:-----|
+| 🥇 | 刘芳 | 高三(1)班 | **12.15s** | +0.9 | 🎉 破校纪录 |
+| 🥈 | 赵敏 | 高二(3)班 | 12.38s | +1.1 | — |
+| 🥉 | 孙丽 | 高三(4)班 | 12.52s | +0.6 | — |
+
+---
+
+## 二、团体项目
+
+### 4×100 米接力
+
+| 名次 | 班级 | 队员 | 成绩 | 备注 |
+|:----:|:-----|:-----|:-----|:-----|
+| 🥇 | 高三(2)班 | 张伟、李强、王勇、赵刚 | **42.18s** | 破纪录 |
+| 🥈 | 高二(1)班 | 陈明、刘洋、周杰、吴昊 | 43.25s | — |
+| 🥉 | 高三(5)班 | 孙涛、黄磊、徐峰、林浩 | 43.68s | — |
+
+### 班级总分排名
+
+| 排名 | 班级 | 田径 | 团体 | 总分 | 奖项 |
+|:----:|:-----|:----:|:----:|:----:|:----:|
+| 1 | 高三(2)班 | 186 | 85 | **271** | 🏆 冠军 |
+| 2 | 高二(1)班 | 152 | 92 | **244** | 🥈 亚军 |
+| 3 | 高三(5)班 | 148 | 78 | **226** | 🥉 季军 |
+| 4 | 高三(1)班 | 135 | 82 | 217 | 第四名 |
+| 5 | 高二(3)班 | 128 | 75 | 203 | 第五名 |
+
+---
+
+## 三、破纪录统计
+
+| 项目 | 原纪录 | 新纪录 | 创造者 | 提升 |
+|:-----|:------:|:------:|:-------|:----:|
+| 男子 100m | 10.95s | **10.82s** | 张伟 | -0.13s |
+| 女子 100m | 12.28s | **12.15s** | 刘芳 | -0.13s |
+| 男子跳远 | 6.85m | **6.92m** | 周鹏 | +0.07m |
+| 4×100 接力 | 42.56s | **42.18s** | 高三(2) | -0.38s |
+
+> 🎉 本届运动会共打破 **4 项校纪录**，创历史新高！`
+  },
+  {
+    id:'math', cat:'math', tag:'数学公式', title:'数学表达式', desc:'KaTeX 行内公式与独立公式块，涵盖代数、微积分、概率、线性代数',
+    md:`# 数学公式渲染示例
+
+## 一、代数与方程
+
+### 二次方程求根公式
+
+一元二次方程 $ax^2 + bx + c = 0$（其中 $a \\neq 0$）的解：
+
+$$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$
+
+判别式 $\\Delta = b^2 - 4ac$ 决定根的性质：
+- $\\Delta > 0$ → 两个不相等的实数根
+- $\\Delta = 0$ → 两个相等的实数根
+- $\\Delta < 0$ → 一对共轭复数根
+
+### 韦达定理
+
+若 $x_1, x_2$ 是 $ax^2+bx+c=0$ 的两根，则：
+
+$$x_1 + x_2 = -\\frac{b}{a}, \\quad x_1 x_2 = \\frac{c}{a}$$
+
+---
+
+## 二、微积分
+
+### 导数定义
+
+$$f'(x_0) = \\lim_{h \\to 0} \\frac{f(x_0+h) - f(x_0)}{h}$$
+
+### 牛顿-莱布尼茨公式
+
+$$\\int_a^b f(x)\\,dx = F(b) - F(a)$$
+
+### 高斯积分
+
+$$\\int_{-\\infty}^{+\\infty} e^{-x^2}\\,dx = \\sqrt{\\pi}$$
+
+---
+
+## 三、概率统计
+
+### 正态分布密度函数
+
+$$f(x) = \\frac{1}{\\sigma\\sqrt{2\\pi}} e^{-\\frac{(x-\\mu)^2}{2\\sigma^2}}$$
+
+### 贝叶斯定理
+
+$$P(A|B) = \\frac{P(B|A) \\cdot P(A)}{P(B)}$$
+
+---
+
+## 四、线性代数
+
+### 矩阵乘法
+
+$$C_{ij} = \\sum_{k=1}^{n} A_{ik} B_{kj}$$
+
+### 特征值问题
+
+$$A\\mathbf{v} = \\lambda \\mathbf{v}$$
+
+---
+
+## 五、著名公式
+
+| 公式 | 名称 | 领域 |
+|:-----|:-----|:-----|
+| $E=mc^2$ | 质能方程 | 物理 |
+| $e^{i\\pi}+1=0$ | 欧拉恒等式 | 数学 |
+| $F=ma$ | 牛顿第二定律 | 力学 |
+| $H\\Psi=E\\Psi$ | 薛定谔方程 | 量子力学 |`
+  },
+  {
+    id:'diagram', cat:'diagram', tag:'图表绘制', title:'流程与架构图', desc:'Mermaid 流程图、时序图、甘特图与类图',
+    md:`# Mermaid 图表展示
+
+## 一、系统架构流程图
+
+\`\`\`mermaid
+graph TD
+    A[🌐 用户请求] -->|HTTPS| B{🔀 负载均衡}
+    B --> C[🖥️ 服务节点 1]
+    B --> D[🖥️ 服务节点 2]
+    B --> F[🖥️ 服务节点 3]
+    C --> E[(🗄️ 主数据库)]
+    D --> E
+    F --> E
+    C --> H[⚡ Redis 缓存]
+    D --> H
+    F --> H
+    E --> G[(💾 只读副本)]
+
+    style A fill:#7BA7A6,color:#fff
+    style B fill:#E8D5E0,color:#2C2C2C
+    style E fill:#8FA68E,color:#fff
+    style H fill:#F5E6D3,color:#2C2C2C
+\`\`\`
+
+## 二、用户登录时序图
+
+\`\`\`mermaid
+sequenceDiagram
+    autonumber
+    actor U as 👤 用户
+    participant C as 📱 客户端
+    participant A as 🔐 认证服务
+    participant D as 🗄️ 数据库
+
+    U->>C: 输入账号密码
+    C->>A: POST /api/auth/login
+    A->>D: 查询用户记录
+    D-->>A: 返回用户信息
+    A->>A: bcrypt 验证密码
+    alt 验证通过
+        A-->>C: 200 + JWT Token
+        C-->>U: 跳转首页
+    else 验证失败
+        A-->>C: 401 Unauthorized
+        C-->>U: 提示"密码错误"
+    end
+\`\`\`
+
+## 三、项目甘特图
+
+\`\`\`mermaid
+gantt
+    title 产品研发里程碑
+    dateFormat YYYY-MM-DD
+    section 设计
+    需求分析    :done, a1, 2024-01-01, 7d
+    原型设计    :done, a2, after a1, 5d
+    UI 设计     :active, a3, after a2, 10d
+    section 开发
+    后端开发    :b1, after a3, 14d
+    前端开发    :b2, after a3, 14d
+    联调测试    :b3, after b1, 5d
+    section 上线
+    UAT 验收    :c1, after b3, 5d
+    灰度发布    :c2, after c1, 3d
+\`\`\`
+
+## 四、类图
+
+\`\`\`mermaid
+classDiagram
+    class User {
+        +Long id
+        +String username
+        +String email
+        +login()
+        +logout()
+    }
+    class Order {
+        +String orderNo
+        +BigDecimal amount
+        +create()
+        +cancel()
+    }
+    class Product {
+        +String sku
+        +String name
+        +BigDecimal price
+    }
+    User "1" --> "*" Order
+    Order "*" --> "*" Product
+\`\`\``
+  },
+  {
+    id:'mixed', cat:'mixed', tag:'综合文档', title:'API 接口文档', desc:'完整技术文档：表格、代码块、引用、列表全特性融合',
+    md:`# 用户管理系统 API 文档
+
+## 一、概述
+
+本文档描述用户管理系统的 RESTful API 规范。
+
+| 项 | 值 |
+|:---|:---|
+| **Base URL** | \`https://api.example.com/v1\` |
+| **认证** | Bearer Token (JWT) |
+| **格式** | \`application/json\` |
+| **编码** | UTF-8 |
+
+### 通用错误码
+
+| 状态码 | 含义 | 处理建议 |
+|:------:|:-----|:---------|
+| 200 | 成功 | 正常解析 |
+| 400 | 参数错误 | 检查请求体 |
+| 401 | 未授权 | 刷新 Token |
+| 403 | 权限不足 | 联系管理员 |
+| 404 | 资源不存在 | 确认 ID |
+| 500 | 服务端异常 | 查看日志 |
+
+---
+
+## 二、认证接口
+
+### POST /auth/login — 用户登录
+
+**请求参数**：
+
+\`\`\`json
+{
+  "username": "admin",
+  "password": "Secure@2024",
+  "captcha": "42A7"
+}
+\`\`\`
+
+**成功响应**：
+
+\`\`\`json
+{
+  "code": 200,
+  "message": "登录成功",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiJ9...",
+    "expires_in": 7200,
+    "user": {
+      "id": 10001,
+      "username": "admin",
+      "nickname": "管理员",
+      "avatar": "https://cdn.example.com/avatars/10001.webp",
+      "role": "admin"
+    }
+  }
+}
+\`\`\`
+
+---
+
+## 三、用户管理
+
+### GET /users — 获取用户列表
+
+| 参数 | 类型 | 必填 | 说明 |
+|:-----|:-----|:----:|:-----|
+| page | int | 否 | 页码，默认 1 |
+| size | int | 否 | 每页 20，最大 100 |
+| keyword | string | 否 | 模糊搜索 |
+| status | string | 否 | active / inactive / banned |
+
+### POST /users — 创建用户
+
+> ⚠️ **权限**: 仅 \`admin\` 角色可操作。
+
+\`\`\`json
+{
+  "username": "zhangsan",
+  "password": "P@ssw0rd!",
+  "nickname": "张三",
+  "email": "zhangsan@example.com",
+  "role": "editor"
+}
+\`\`\`
+
+---
+
+## 四、快速开始
+
+### Python
+
+\`\`\`python
+import requests
+
+resp = requests.post(
+    'https://api.example.com/v1/auth/login',
+    json={'username': 'admin', 'password': 'xxx', 'captcha': '42A7'}
+)
+token = resp.json()['data']['token']
+
+headers = {'Authorization': f'Bearer {token}'}
+users = requests.get(
+    'https://api.example.com/v1/users',
+    headers=headers,
+    params={'page': 1, 'size': 10}
+)
+print(users.json())
+\`\`\`
+
+### cURL
+
+\`\`\`bash
+# 登录获取 Token
+curl -s -X POST https://api.example.com/v1/auth/login \\
+  -H "Content-Type: application/json" \\
+  -d '{"username":"admin","password":"xxx","captcha":"42A7"}'
+
+# 携带 Token 请求
+curl -s https://api.example.com/v1/users?page=1&size=10 \\
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+\`\`\`
+
+---
+
+## 五、版本历史
+
+| 版本 | 日期 | 更新 |
+|:-----|:-----|:-----|
+| v1.2 | 2024-03 | 新增批量操作 |
+| v1.1 | 2024-02 | 增加验证码 |
+| v1.0 | 2024-01 | 初始发布 |
+
+> 📧 support@example.com　　📖 [完整文档](https://docs.example.com)`
+  },
+  {
+    id:'chinese', cat:'text', tag:'文本排版', title:'中文排版优化', desc:'中英文混排、标点规范、字体搭配与排版最佳实践',
+    md:`# 中文排版优化指南
+
+## 一、标点符号规范
+
+中文应使用全角标点：
+
+- **句号**「。」用于陈述句末尾
+- **逗号**「，」用于句内停顿
+- **顿号**「、」连接并列词语
+- **冒号**「：」用于提示语后
+- **问号**「？」叹号「！」含义自明
+
+> 引号推荐使用「」或『』替代英文 ""。
+
+## 二、中西文混排空格规则
+
+| 场景 | 规则 | 示例 |
+|:-----|:-----|:-----|
+| 中文 + 西文 | ✅ 加空格 | 使用 **Python** 语言 |
+| 中文 + 数字 | ✅ 加空格 | 共 **100** 个用户 |
+| 西文 + 数字 | ❌ 不加 | Python**3**、UTF-**8** |
+| 全角标点 + 西文 | ❌ 不加 | 学习 Python，掌握编程。 |
+
+## 三、字体搭配推荐
+
+| 用途 | 中文字体 | 西文字体 |
+|:-----|:---------|:---------|
+| 正文 | Noto Serif SC | Cormorant Garamond |
+| 标题 | Noto Serif SC | Playfair Display |
+| 代码 | — | SFMono / Fira Code |
+
+## 四、中文数字规范
+
+| 场景 | 写法 | 说明 |
+|:-----|:-----|:-----|
+| 数量 | 3 个苹果 | 阿拉伯数字 |
+| 概数 | 三四天 | 中文数字，不加顿号 |
+| 年份 | 2024 年 | 阿拉伯数字 |
+| 分数 | 三分之二 | 中文数字 |
+| 百分数 | 50% | 阿拉伯数字 |
+
+## 五、常见对比
+
+❌ **错误**：使用半角标点: 不对. 中英文不加空格。
+
+✅ **正确**：使用全角标点：对。中英文加空格。
+
+❌ **错误**：引号混用。
+
+✅ **正确**：「引号统一」。
+
+---
+
+> 💡 好排版不只是美，更直接提升信息传达效率。`
+  }
+];
+
+/* ═══════════════════════ Render ═══════════════════════ */
+marked.setOptions({breaks:true,gfm:true,headerIds:false});
+mermaid.initialize({startOnLoad:false,theme:'default'});
+
+function renderMd(container,text,isFull){
+  const html=marked.parse(text);
+  // DOMPurify 净化（XSS 防护）
+  let clean=html;
+  if(typeof DOMPurify!=='undefined'){
+    try{clean=DOMPurify.sanitize(html,{
+      ALLOWED_TAGS:['h1','h2','h3','h4','h5','h6','p','br','ul','ol','li','strong','em','del','a','code','pre','blockquote','table','thead','tbody','tr','th','td','img','span','div','hr','sup','sub','input'],
+      ALLOWED_ATTR:['href','src','class','id','target','alt','title','type','checked','disabled'],
+      ALLOW_DATA_ATTR:false
+    });}catch(e){}
+  }
+  container.innerHTML=clean;
+  // Code blocks
+  container.querySelectorAll('pre code').forEach(b=>{
+    const pre=b.parentElement,w=document.createElement('div');
+    w.className='code-block-wrapper';
+    const lang=(b.className.match(/language-(\w+)/)||[])[1]||'text';
+    const h=document.createElement('div');h.className='code-block-header';
+    h.innerHTML='<span class="code-lang">'+lang+'</span><button class="copy-btn" onclick="copyCode(this)">📋 复制</button>';
+    pre.parentNode.insertBefore(w,pre);w.appendChild(h);w.appendChild(pre);
+  });
+  setTimeout(()=>container.querySelectorAll('pre code').forEach(b=>{if(typeof hljs!=='undefined')hljs.highlightElement(b)}),50);
+  if(typeof renderMathInElement!=='undefined'){
+    try{renderMathInElement(container,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false});}catch(e){}
+  }
+  // Mermaid: move text from code blocks to div
+  container.querySelectorAll('.language-mermaid').forEach(b=>{
+    const pre=b.parentElement,g=document.createElement('div');
+    g.className='mermaid';g.textContent=b.textContent;
+    pre.parentNode.replaceChild(g,pre);
+  });
+  // ✅ 仅对当前卡片内的 Mermaid 图表执行渲染（作用域限定）
+  if(isFull) setTimeout(()=>{try{
+    const mermaidNodes=container.querySelectorAll('.mermaid');
+    if(mermaidNodes.length>0)mermaid.run({nodes:mermaidNodes}).catch(()=>{});
+  }catch(e){}},100);
+}
+
+function copyToClipboard(text,onSuccess,onError){
+  function fallback(){
+    const ta=document.createElement('textarea');
+    ta.value=text;ta.style.cssText='position:fixed;left:-9999px;top:-9999px';
+    document.body.appendChild(ta);ta.focus();ta.select();
+    try{document.execCommand('copy')?onSuccess():onError();}catch(e){onError();}
+    document.body.removeChild(ta);
+  }
+  if(navigator.clipboard&&window.isSecureContext){
+    navigator.clipboard.writeText(text).then(onSuccess).catch(()=>fallback());
+  }else{fallback();}
+}
+
+function copyCode(btn){
+  const wrapper=btn.closest('.code-block-wrapper');
+  if(!wrapper)return;
+  const codeEl=wrapper.querySelector('code');
+  if(!codeEl)return;
+  const code=codeEl.textContent;
+  if(btn._ct){clearTimeout(btn._ct);btn._ct=null;}
+  copyToClipboard(code,
+    ()=>{btn.textContent='✅ 已复制';btn._ct=setTimeout(()=>btn.textContent='📋 复制',1500);},
+    ()=>{btn.textContent='❌ 失败';btn._ct=setTimeout(()=>btn.textContent='📋 复制',1500);}
+  );
+}
+
+/* ═══════════════════════ Build Gallery ═══════════════════════ */
+const gallery=document.getElementById('gallery');
+const previewHeights={};
+
+cards.forEach(c=>{
+  const card=document.createElement('article');
+  card.className='card';card.dataset.category=c.cat;card.id='card-'+c.id;
+
+  const close=document.createElement('button');
+  close.className='close-btn';close.textContent='✕';
+  close.onclick=function(e){e.stopPropagation();collapseCard(card);};
+
+  const header=document.createElement('div');header.className='card-header';
+  header.innerHTML='<span class="card-tag '+c.cat+'">'+c.tag+'</span><h2 class="card-title">'+c.title+'</h2><p class="card-desc">'+c.desc+'</p>';
+
+  const preview=document.createElement('div');preview.className='card-preview';
+  const previewContent=document.createElement('div');previewContent.className='md-content';
+  preview.appendChild(previewContent);
+
+  const full=document.createElement('div');full.className='card-full';
+  const fullContent=document.createElement('div');fullContent.className='md-content';
+  full.appendChild(fullContent);
+
+  card.appendChild(close);card.appendChild(header);card.appendChild(preview);card.appendChild(full);
+
+  card.onclick=function(e){
+    if(e.target.closest('.close-btn'))return;
+    expandCard(card,c.id);
+  };
+
+  gallery.appendChild(card);
+
+  // Render preview immediately
+  renderMd(previewContent,c.md,false);
+});
+
+/* ═══════════════════════ Card Actions ═══════════════════════ */
+function expandCard(card,id){
+  if(card.classList.contains('expanded'))return;
+  // Collapse others
+  document.querySelectorAll('.card.expanded').forEach(c=>collapseCard(c));
+  card.classList.add('expanded');
+  const full=card.querySelector('.card-full .md-content');
+  if(!full.dataset.rendered){
+    const data=cards.find(c=>c.id===id);
+    renderMd(full,data.md,true);
+    full.dataset.rendered='1';
+    // 添加复制卡片内容按钮
+    const existingBtn=card.querySelector('.copy-card-btn');
+    if(existingBtn) existingBtn.remove();
+    const copyBtn=document.createElement('button');
+    copyBtn.className='copy-card-btn';
+    copyBtn.textContent='📋 复制卡片内容';
+    copyBtn.onclick=function(e){
+      e.stopPropagation();
+      copyToClipboard(data.md,
+        ()=>{copyBtn.textContent='✅ 已复制';setTimeout(()=>copyBtn.textContent='📋 复制卡片内容',1500);},
+        ()=>{copyBtn.textContent='❌ 失败';setTimeout(()=>copyBtn.textContent='📋 复制卡片内容',1500);}
+      );
+    };
+    full.parentNode.appendChild(copyBtn);
+  }
+  setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+
+function collapseCard(card){
+  card.classList.remove('expanded');
+}
+
+/* ═══════════════════════ Filter ═══════════════════════ */
+document.querySelectorAll('.filter-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const f=btn.dataset.filter;
+    document.querySelectorAll('.card').forEach(card=>{
+      const hide=(f!=='all'&&card.dataset.category!==f);
+      if(hide){
+        // 过滤隐藏时同步收起展开状态，避免重新显示时以展开态出现
+        card.classList.remove('expanded');
+        card.style.display='none';
+      }else{
+        card.style.display='';
+      }
+    });
+  });
+});
+</script>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span class="footer-dev">开发者：<strong>Yardon</strong></span>
+      <a href="https://github.com/YardonYan/markdown-renderer-fix" target="_blank" rel="noopener noreferrer" class="github-link" aria-label="查看 GitHub 仓库">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span>GitHub</span>
+      </a>
+    </div>
+  </footer>
+</body>
+</html>

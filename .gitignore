@@ -27,6 +27,13 @@ Desktop.ini
 node_modules/
 package-lock.json
 
+# Design docs (internal only, not for publishing)
+CLAUDE_CODE_PROMPT.md
+
+# Environment
+.env
+*.bak
+
 # Temp files
 *.tmp
 *.log

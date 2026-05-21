@@ -1,7 +1,7 @@
 # 浏览器兼容性与 CDN / Browser Compatibility & CDN
 
-> 🇬🇧 EN: Browser support matrix, CDN availability, fallback strategies, domestic mirror recommendations.
 > 🇨🇳 ZH: 浏览器兼容矩阵、CDN 可用性、渐进增强降级策略、国内镜像推荐。
+> 🇬🇧 EN: Browser support matrix, CDN availability, fallback strategies, domestic mirror recommendations.
 
 > **v3.0.0 — Updated CDN mirrors & color-mix() support matrix**
 

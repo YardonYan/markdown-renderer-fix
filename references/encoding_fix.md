@@ -1,7 +1,7 @@
 # 中文乱码专项修复 / Chinese Encoding Fix Guide
 
-> 🇬🇧 EN: tiktoken root cause, GBK/UTF-8 mixing, tokenizer compatibility matrix, diagnostic code insertion guide.
 > 🇨🇳 ZH: tiktoken 根因分析、GBK/UTF-8 混用、Tokenizer 兼容矩阵、诊断代码插入指引。
+> 🇬🇧 EN: tiktoken root cause, GBK/UTF-8 mixing, tokenizer compatibility matrix, diagnostic code insertion guide.
 
 > **v3.0.0 — Quick Pattern Cards added; 6-token design system diagnostic colors**
 

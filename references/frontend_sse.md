@@ -1,7 +1,7 @@
 # 前端 SSE 消费指南 / Frontend SSE Consumption Guide
 
-> 🇬🇧 EN: SSE EventSource/fetch consumption, timeout handling, reconnection, TextDecoder stream mode.
 > 🇨🇳 ZH: SSE EventSource/fetch 消费、超时处理、断线重连、TextDecoder 流模式。
+> 🇬🇧 EN: SSE EventSource/fetch consumption, timeout handling, reconnection, TextDecoder stream mode.
 
 > **v3.0.0 — SSE Quality Checklist added**
 

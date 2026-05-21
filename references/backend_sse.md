@@ -1,7 +1,7 @@
 # 后端 SSE 实现指南 / Backend SSE Implementation Guide
 
-> 🇬🇧 EN: FastAPI/Django/Flask SSE endpoints, ping/keep-alive, reverse proxy configs (nginx/Caddy/Traefik/HAProxy/AWS/Cloudflare).
 > 🇨🇳 ZH: FastAPI/Django/Flask SSE 端点、保活心跳、反向代理配置（nginx/Caddy/Traefik/HAProxy/AWS/Cloudflare 六方）。
+> 🇬🇧 EN: FastAPI/Django/Flask SSE endpoints, ping/keep-alive, reverse proxy configs (nginx/Caddy/Traefik/HAProxy/AWS/Cloudflare).
 
 
 > 作者：Yardon | FastAPI / Django / Flask 三框架适配
@@ -150,12 +150,6 @@ def chat_stream():
 ```
 
 > ⚠️ 生产环境建议使用 Gunicorn + gevent/eventlet worker，而非 threading。
-
-### Flask（原始版本 — 仅示意）
-
-```python
-from flask import Response, stream_with_context
-import json
 
 ## 保活信号的三个作用
 

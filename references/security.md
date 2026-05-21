@@ -1,7 +1,7 @@
 # 安全提醒 / Security Advisory
 
-> 🇬🇧 EN: XSS prevention, DOMPurify sanitization, CSP headers, dangerous protocol filtering.
 > 🇨🇳 ZH: XSS 防护、DOMPurify 净化、CSP 配置、危险协议过滤。
+> 🇬🇧 EN: XSS prevention, DOMPurify sanitization, CSP headers, dangerous protocol filtering.
 
 > **v3.0.0 — Open Design CSP context & user-input sanitization**
 

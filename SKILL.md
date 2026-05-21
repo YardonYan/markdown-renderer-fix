@@ -51,8 +51,8 @@ od:
 # Markdown 渲染与中文乱码修复
 # Markdown Rendering & Chinese Encoding Fix
 
-> 🇬🇧 **English** | 🇨🇳 **中文** — This skill provides bilingual documentation throughout.
-> 本 Skill 全文档提供中英双语。
+> 🇨🇳 **中文** | 🇬🇧 **English** — 本 Skill 全文档提供中英双语。
+> This skill provides bilingual documentation throughout.
 
 > 作者：Yardon | 基于多次实战修复经验
 
@@ -242,11 +242,11 @@ od:
 
 ```css
 :root {
-  --bg:      #fafaf7;  /* warm paper white background */
+  --bg:      #f8f9fb;  /* page background */
   --surface: #ffffff;  /* card/module surface */
-  --fg:      #1a1916;  /* primary text — near-black with warmth */
-  --muted:   #6b6964;  /* secondary text / captions */
-  --border:  #e8e5df;  /* subtle borders / dividers */
+  --fg:      #1a1a2e;  /* primary text */
+  --muted:   #6b7280;  /* secondary text / captions */
+  --border:  #e5e7eb;  /* subtle borders / dividers */
   --accent:  #4a90d9;  /* blue accent for tech/encoding context */
 }
 ```
@@ -263,12 +263,11 @@ od:
 
 ```css
 :root {
-  --space-xs:  0.25rem;  /* 4px  — inline gaps */
-  --space-sm:  0.5rem;   /* 8px  — compact padding */
-  --space-md:  1rem;     /* 16px — standard padding */
-  --space-lg:  1.5rem;   /* 24px — section spacing */
-  --space-xl:  2rem;     /* 32px — major section separation */
-  --space-2xl: 3rem;     /* 48px — page-level margins */
+  --gap-xs:  6px;     /* 6px  — inline gaps */
+  --gap-sm:  12px;    /* 12px — compact padding */
+  --gap-md:  20px;    /* 20px — standard padding */
+  --gap-lg:  32px;    /* 32px — section spacing */
+  --gap-xl:  56px;    /* 56px — major section separation */
 }
 ```
 
@@ -282,21 +281,27 @@ od:
 
 ## 快速诊断
 
-> ⚠️ **会话持久化**：当前 chat_template.html 每次请求使用 `Date.now()` 生成会话 ID，
-> 页面刷新后历史对话丢失。如需持久化：
+> ⚠️ **演示与生产分离**：
+> - `assets/index.html` 为纯前端示范页面，无需后端即可浏览
+> - `assets/chat_template.html` 为生产级聊天模板（SSE 流式消费 + 会话管理），需要后端 SSE 端点
+> 如需持久化对话历史：
 > - **localStorage**：存储 `{sessionId, messages[]}`，刷新后恢复
 > - **服务端会话管理**：用户登录后绑定 session_id，刷新后查询历史
 > - **URL 参数**：`?session=xxx` 可跨标签页共享
-> 详见 `assets/chat_template.html` 中 `sessionId` 变量附近的注释。
 
 ```bash
-# 测试 SSE 原始输出中是否有 � (U+FFFD)
+# 测试 SSE 原始输出中是否有 � (U+FFFD) — Linux/macOS
 curl -s -N -X POST http://127.0.0.1:18765/api/chat/stream \
   -H "Content-Type: application/json" \
   -d '{"message":"hi","session_id":"debug"}' --max-time 30 2>&1 \
   | grep -a -o $'\xef\xbf\xbd' | wc -l
 
-# 运行编码诊断脚本
+# Windows PowerShell 等价
+(Invoke-WebRequest -Uri http://127.0.0.1:18765/api/chat/stream -Method POST `
+  -Body '{"message":"hi","session_id":"debug"}' -ContentType "application/json").Content `
+  | Select-String -Pattern "\ufffd" | Measure-Object | Select-Object -ExpandProperty Count
+
+# 运行编码诊断脚本（跨平台）
 python scripts/diagnose_encoding.py --test-text "你好世界"
 ```
 
@@ -306,7 +311,7 @@ python scripts/diagnose_encoding.py --test-text "你好世界"
 
 ```
 新人入门：
-  SKILL.md（你在这里）→ chat_template.html（看实物）→ troubleshooting.md（学排查）
+  SKILL.md（你在这里）→ index.html（看示范效果）→ troubleshooting.md（学排查）
 
 乱码排查：
   SKILL.md 决策树 → encoding_fix.md（tiktoken/GBK 双根因）→ backend_sse.md（端点实现）
@@ -314,6 +319,9 @@ python scripts/diagnose_encoding.py --test-text "你好世界"
 功能实现：
   chat_template.html（生产级参考）→ markdown_render.md（API 说明）→ performance.md（优化）
   → frontend_sse.md（SSE 消费）→ security.md（上线前安全审计）
+
+演示浏览：
+  index.html（无需后端，直接打开浏览器查看 Markdown 渲染效果）
 
 框架集成：
   framework_adaptation.md（React/Vue/Angular/Svelte 四选一）
@@ -342,7 +350,7 @@ python scripts/diagnose_encoding.py --test-text "你好世界"
 ## 完整模板
 
 - [assets/chat_template.html](assets/chat_template.html) — 生产级聊天界面模板（含 SSE 流式消费）
-- [assets/demo.html](assets/demo.html) — Markdown 渲染效果示范页面（卡片式画廊，点击展开）
+- [assets/index.html](assets/index.html) — Markdown 渲染效果示范页面（卡片式画廊，点击展开）
 
 ## 安装与使用
 

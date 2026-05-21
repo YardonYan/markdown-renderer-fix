@@ -1,7 +1,7 @@
 # 框架适配指南 / Framework Adaptation Guide
 
-> 🇬🇧 EN: React/Vue 3/Angular/Svelte adapters, TypeScript types, DOMPurify hook integration.
 > 🇨🇳 ZH: React/Vue 3/Angular/Svelte 四框架适配方案、TypeScript 类型定义、DOMPurify 钩子集成。
+> 🇬🇧 EN: React/Vue 3/Angular/Svelte adapters, TypeScript types, DOMPurify hook integration.
 
 > **v3.0.0 — Design Token Integration added for all frameworks**
 

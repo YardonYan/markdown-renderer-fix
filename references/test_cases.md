@@ -1,7 +1,7 @@
 # 测试与验证 / Testing & Validation
 
-> 🇬🇧 EN: 11 verification tests including XSS, dark mode, mobile responsive, encoding round-trip.
 > 🇨🇳 ZH: 11 项验证测试：XSS 攻击、暗黑模式、移动端响应式、编码往返验证。
+> 🇬🇧 EN: 11 verification tests including XSS, dark mode, mobile responsive, encoding round-trip.
 
 > **v3.0.0 — 3 new test cases: design tokens, typography, dark mode transition**
 

@@ -1,7 +1,7 @@
 # 性能优化 / Performance Optimization
 
-> 🇬🇧 EN: Incremental rendering, requestAnimationFrame throttling, virtual scrolling, Web Worker offloading.
 > 🇨🇳 ZH: 增量渲染、rAF 节流、虚拟滚动、Web Worker 离线解析。
+> 🇬🇧 EN: Incremental rendering, requestAnimationFrame throttling, virtual scrolling, Web Worker offloading.
 
 > **v3.0.0 — CSS custom properties & text-wrap performance analysis**
 

@@ -1,7 +1,7 @@
 # 无障碍访问指南 / Accessibility Guide
 
-> 🇬🇧 EN: WCAG compliance, ARIA attributes, keyboard shortcuts, color contrast, screen reader support.
 > 🇨🇳 ZH: WCAG 合规、ARIA 属性、键盘快捷键、颜色对比度、屏幕阅读器支持。
+> 🇬🇧 EN: WCAG compliance, ARIA attributes, keyboard shortcuts, color contrast, screen reader support.
 
 > **v3.0.0 — Enhanced for Open Design integration**
 

@@ -1,7 +1,7 @@
 # Markdown 渲染详解 / Markdown Rendering Details
 
-> 🇬🇧 EN: Marked.js configuration, render pipeline, tool-output filtering, language-adaptive strategies.
 > 🇨🇳 ZH: Marked.js 配置、渲染管道、工具调用过滤、多语言适配策略。
+> 🇬🇧 EN: Marked.js configuration, render pipeline, tool-output filtering, language-adaptive strategies.
 
 > **v3.0.0 — Open Design integration; transition effects & 6-token design system**
 

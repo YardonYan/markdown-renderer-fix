@@ -73,17 +73,17 @@
 git clone <repo-url>
 cp -r markdown-renderer-fix ~/.qclaw/skills/
 
-# 2. 本地预览（需 HTTP 服务器，不支持 file:// 直接打开）
+# 2. 本地预览 chat_template.html（需 HTTP 服务器，不支持 file:// 直接打开）
 cd markdown-renderer-fix/assets
 py -m http.server 8080
 # 浏览器访问 http://localhost:8080/chat_template.html
 
-# 2. 直接在浏览器中预览效果（无需启动服务器）
-open assets/demo.html      # macOS
-start assets/demo.html     # Windows
-xdg-open assets/demo.html  # Linux
+# 3. 直接在浏览器中预览示范页面（无需启动服务器）
+open assets/index.html      # macOS
+start assets/index.html     # Windows
+xdg-open assets/index.html  # Linux
 
-# 3. 对你的服务器运行诊断
+# 4. 对你的服务器运行诊断
 python scripts/diagnose_encoding.py --full
 ```
 
@@ -116,8 +116,8 @@ SSE 流式 + 中文文本 + Markdown 渲染，看似简单，实际穿越前后�
 
 | 组件 | 说明 | 独立使用？ |
 |:-----|:-----|:---------|
-| `assets/chat_template.html` | 完整聊天 UI（SSE + Markdown + 高亮 + 公式） | ✅ 浏览器直接打开 |
-| `assets/demo.html` | Markdown 渲染效果画廊（6 种范本卡片） | ✅ 浏览器直接打开 |
+| `assets/chat_template.html` | 完整聊天 UI（SSE + Markdown + 高亮 + 公式） | ✅ 需本地 HTTP 服务器 |
+| `assets/index.html` | Markdown 渲染效果画廊（8 种范本卡片） | ✅ 浏览器直接打开 |
 | `scripts/diagnose_encoding.py` | 多模式编码健康检查 | ✅ `python` 命令运行 |
 | `SKILL.md` + `references/` | OpenClaw AI 指导 | 需 OpenClaw 环境 |
 
@@ -194,7 +194,7 @@ python scripts/diagnose_encoding.py --test-text "你好世界" --full
 | **Design System Upgrade** | 6-token color system (`--bg`, `--surface`, `--fg`, `--muted`, `--border`, `--accent`) + 3-tier typography (display serif / body sans / mono) + spacing scale |
 | **Quality Assurance Framework** | P0 (must pass) / P1 (should pass) / P2 (nice to have) three-tier checklist covering charset, security, accessibility, performance |
 | **Anti-Patterns** | 8 documented common mistakes with concrete fix alternatives — all based on real-world debugging experience |
-| **Visual Design** | Professional polish across demo.html (card gallery with design tokens) and chat_template.html (refined typography, improved dark mode) |
+| **Visual Design** | Professional polish across index.html (card gallery with design tokens) and chat_template.html (refined typography, improved dark mode) |
 | **Open Design Integration** | `od:` frontmatter metadata block for standardized skill discovery and categorization |
 
 

@@ -1,7 +1,7 @@
 # 问题排查手册 / Troubleshooting Manual
 
-> 🇬🇧 EN: 6-step escalation flow, common error patterns, diagnostic commands.
 > 🇨🇳 ZH: 6 步逐层排查流程、常见错误模式、诊断命令。
+> 🇬🇧 EN: 6-step escalation flow, common error patterns, diagnostic commands.
 
 > **v3.0.0 — Version compatibility notes added**
 

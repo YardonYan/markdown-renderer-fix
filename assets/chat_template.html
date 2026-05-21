@@ -572,8 +572,13 @@
 
       // 1. Markdown → HTML（错误边界）
       let html;
-      try { html = marked.parse(text); }
-      catch (e) { container.textContent = text; return container; }
+      try {
+        // Pre-process: collapse newlines inside $$...$$ math blocks
+        let mtext = text.replace(/\$\$([\s\S]*?)\$\$/g, function(m, body) {
+          return '$$' + body.replace(/\n/g, ' ') + '$$';
+        });
+        html = marked.parse(mtext);
+      } catch (e) { container.textContent = text; return container; }
 
       // 2. DOMPurify 净化 + javascript: 过滤
       let clean;

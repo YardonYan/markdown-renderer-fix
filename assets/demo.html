@@ -956,7 +956,12 @@ marked.setOptions({breaks:true,gfm:true,headerIds:false});
 mermaid.initialize({startOnLoad:false,theme:'default'});
 
 function renderMd(container,text,isFull){
-  const html=marked.parse(text);
+  // Pre-process: collapse newlines inside $$...$$ math blocks
+  // (marked breaks:true would inject <br> which breaks KaTeX parsing)
+  let mtext = text.replace(/\$\$([\s\S]*?)\$\$/g, function(m, body) {
+    return '$$' + body.replace(/\n/g, ' ') + '$$';
+  });
+  const html=marked.parse(mtext);
   // DOMPurify 净化（XSS 防护）
   let clean=html;
   if(typeof DOMPurify!=='undefined'){

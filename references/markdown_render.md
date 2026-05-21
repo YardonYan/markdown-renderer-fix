@@ -3,10 +3,17 @@
 > 🇬🇧 EN: Marked.js configuration, render pipeline, tool-output filtering, language-adaptive strategies.
 > 🇨🇳 ZH: Marked.js 配置、渲染管道、工具调用过滤、多语言适配策略。
 
+> **v3.0.0 — Open Design integration; transition effects & 6-token design system**
 
 > ⚠️ **权威实现以 [chat_template.html](../assets/chat_template.html) 为准**。本文档为 API 说明与配置参考。
 
 > 作者：Yardon | 覆盖 marked.js + DOMPurify + highlight.js + KaTeX + Mermaid
+
+## Quick Pattern Card / 快速问题模式
+
+> **Fix Pattern C**：Markdown 不渲染 → 检查 `marked.parse()` 输入是否包含乱码（先用 `console.log(repr(text))` 验证）
+> **Fix Pattern D**：代码块无高亮 → 确认 `hljs.highlightElement()` 在 DOM 插入后执行（需 `setTimeout` 延迟 50ms）
+> **Fix Pattern F**：工具调用输出泄露到界面 → 确认 `cleanToolOutput()` 过滤器已注册所有内部日志模式
 
 ## 库依赖
 
@@ -105,6 +112,8 @@ function renderMarkdown(text, opts = {}) {
   });
 
   // 5. 代码高亮 + KaTeX + Mermaid（AbortController 管理）
+  // 💡 v3.0.0: 代码块样式使用 6-token 设计系统变量
+  //   --surface 为代码块背景, --border 为边框, --muted 为语言标签色, --accent 为高亮色
   const abortCtl = new AbortController();
   const signal = abortCtl.signal;
 
@@ -277,6 +286,39 @@ function addMessageActions(bubble) {
 }
 .msg-actions button:hover { opacity: 1; background: rgba(0,0,0,0.05); }
 ```
+
+## Transition Effects / 消息过渡动画
+
+> v3.0.0 新增：消息渲染时的淡入上升动画，提升感知流畅度
+
+```css
+/* 新消息进入动画 */
+.msg {
+  animation: fadeUp 0.3s ease both;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 用户消息和 AI 消息可以有细微差异 */
+.msg.user {
+  animation-duration: 0.2s;
+}
+
+.msg.assistant {
+  animation-duration: 0.35s;
+}
+```
+
+> **无障碍提示**：配合 `prefers-reduced-motion: reduce` 媒体查询禁用动画（见 [accessibility.md](accessibility.md)）。
 
 ## 输入框占位符
 

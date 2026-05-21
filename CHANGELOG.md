@@ -3,6 +3,33 @@
 All notable changes to the markdown-renderer-fix Skill.
 markdown-renderer-fix Skill 的所有重要变更。
 
+## v3.0.0 (2026-05-21) — Open Design Integration 🎨 / Open Design 整合 🎨
+
+### Design System
+- **6-Token Design System**: Unified color, typography, spacing tokens across all templates
+- **Enhanced Typography**: Display serif / body sans / mono three-tier font system
+- **Professional Visual Language**: Refined card design, spacing rhythm, interactive states
+
+### Structure
+- **Fix Pattern Catalog**: 8 numbered fix patterns with symptom → root cause → fix → reference
+- **Quality Checklist**: P0/P1/P2 tiered quality gates for all templates
+- **Anti-Patterns**: Documented common mistakes with concrete "don't" → "do" guidance
+- **Open Design Metadata**: `od:` frontmatter block with mode, category, triggers
+
+### Templates
+- **chat_template.html**: 6-token design system, refined typography, improved dark mode
+- **demo.html**: Card gallery with design tokens, enhanced hero section, smoother animations
+
+### Documentation
+- **SKILL.md**: Pattern catalog, quality checklist, anti-patterns, version history added
+- **README.md**: Version badges, design system showcase, update highlights
+- **CHANGELOG.md**: This file
+
+### Integration
+- Design patterns from Open Design project
+- Quality framework from html-skill-effectiveness
+- Bilingual support maintained and enhanced
+
 ## v2.0.0 (2026-05-06) — 首次公开发布 🎉 / First Public Release 🎉
 
 ### Core Features

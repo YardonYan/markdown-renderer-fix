@@ -3,8 +3,106 @@
 > 🇬🇧 EN: React/Vue 3/Angular/Svelte adapters, TypeScript types, DOMPurify hook integration.
 > 🇨🇳 ZH: React/Vue 3/Angular/Svelte 四框架适配方案、TypeScript 类型定义、DOMPurify 钩子集成。
 
+> **v3.0.0 — Design Token Integration added for all frameworks**
 
 > 作者：Yardon | React / Vue / Angular / Svelte 四方适配
+
+## Design Token Integration / 设计 Token 集成
+
+所有框架统一推荐使用 CSS 自定义属性注入 6-token 设计系统。在各框架的全局样式文件或入口组件中注入：
+
+```css
+/* Recommended: Inject design tokens as CSS custom properties */
+:root {
+  --bg: #f8f9fb;
+  --surface: #ffffff;
+  --fg: #1a1a2e;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --accent: #4a90d9;
+}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1a2e;
+    --surface: #2a2a3e;
+    --fg: #e0e0e0;
+    --muted: #999999;
+    --border: #3a3a4e;
+    --accent: #7eb8f5;
+  }
+}
+```
+
+### React
+
+```tsx
+// 在 index.tsx 或 App.tsx 中引入全局 design tokens
+import './design-tokens.css';  // 包含上述 :root 变量
+
+function ChatMessage({ content }: ChatMessageProps) {
+  return (
+    <div className="prose" style={{
+      color: 'var(--fg)',
+      background: 'var(--surface)',
+    }}>
+      {/* Markdown 内容 */}
+    </div>
+  );
+}
+```
+
+### Vue 3
+
+```vue
+<!-- 在 App.vue 或 main.ts 中全局引入 design tokens -->
+<style>
+@import './design-tokens.css';
+
+.prose {
+  color: var(--fg);
+  background: var(--surface);
+  border-color: var(--border);
+}
+</style>
+```
+
+### Angular
+
+```typescript
+// 在 styles.scss 中引入 design tokens
+@import './design-tokens.css';
+
+@Component({
+  selector: 'app-chat-message',
+  styles: [`
+    .prose {
+      color: var(--fg);
+      background: var(--surface);
+      border-color: var(--border);
+    }
+  `],
+  template: '<div class="prose" [innerHTML]="renderedContent"></div>'
+})
+```
+
+### Svelte
+
+```svelte
+<!-- 在 app.css 或全局样式入口引入 -->
+<style global>
+  @import './design-tokens.css';
+
+  .prose {
+    color: var(--fg);
+    background: var(--surface);
+    border-color: var(--border);
+  }
+</style>
+```
+
+> 💡 **排版建议**：所有框架组件中，标题元素（`h1`-`h6`）应使用 `text-wrap: balance` 避免孤字悬垂。在全局 CSS 中统一设置即可：`h1, h2, h3, h4, h5, h6 { text-wrap: balance; }`
 
 ## TypeScript 类型定义
 

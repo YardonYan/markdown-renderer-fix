@@ -1,7 +1,7 @@
 ---
 name: markdown-renderer-fix
 description: |
-  [EN] Mandatory trigger for Markdown rendering, SSE streaming, Chinese garbled text,
+  [v3.0.0] [EN] Mandatory trigger for Markdown rendering, SSE streaming, Chinese garbled text,
   code highlighting, Mermaid diagrams, KaTeX formulas, and tool-call output filtering.
   Do NOT guess parameters from memory — always load this skill.
 
@@ -29,6 +29,23 @@ description: |
 metadata:
   openclaw:
     emoji: "📝"
+od:
+  mode: tool
+  platform: all
+  scenario: encoding-rendering
+  triggers:
+    - "Markdown rendering"
+    - "SSE streaming"
+    - "Chinese garbled text"
+    - "code highlighting"
+    - "Mermaid diagrams"
+    - "KaTeX formulas"
+    - "tool-call output filtering"
+    - "encoding fix"
+    - "乱码"
+    - "渲染"
+    - "高亮"
+    - "公式"
 ---
 
 # Markdown 渲染与中文乱码修复
@@ -82,6 +99,83 @@ metadata:
 > - 无障碍访问（ARIA、键盘快捷键、色对比度）→ [accessibility.md](references/accessibility.md)
 > - 修复后验证（11 个测试案例）→ [test_cases.md](references/test_cases.md)
 
+## Fix Pattern Catalog / 修复模式目录
+
+> Each pattern follows: **Symptom → Root Cause → Fix (1-liner) → Reference**
+> 每种模式遵循：**症状 → 根因 → 一行修复 → 参考文档**
+
+### Pattern A: tiktoken U+FFFD Fix / tiktoken U+FFFD 修复
+
+| Item | Detail |
+|------|--------|
+| **Symptom / 现象** | Chinese characters display as `���` (1 Chinese char → 3 �) |
+| **Root Cause / 根因** | tiktoken decodes tokens one-by-one, splitting multi-byte UTF-8 sequences — incomplete byte sequences get replaced with U+FFFD |
+| **Fix (1-liner)** | `text = enc.decode(all_tokens)` — decode all tokens at once instead of one-by-one |
+| **Reference / 参考** | [encoding_fix.md](references/encoding_fix.md) |
+
+### Pattern B: SSE Non-Streaming Fix / SSE 非流式修复
+
+| Item | Detail |
+|------|--------|
+| **Symptom / 现象** | SSE endpoint waits and returns full response at once instead of streaming |
+| **Root Cause / 根因** | Missing `charset=utf-8` in Content-Type, reverse proxy buffering, or `json.dumps` without `ensure_ascii=False` |
+| **Fix (1-liner)** | Set `Content-Type: text/event-stream; charset=utf-8` + disable proxy buffering |
+| **Reference / 参考** | [backend_sse.md](references/backend_sse.md) |
+
+### Pattern C: Markdown Not Rendering Fix / Markdown 未渲染修复
+
+| Item | Detail |
+|------|--------|
+| **Symptom / 现象** | Raw Markdown syntax visible (`# Title`, `**bold**`, `- list`) instead of formatted HTML |
+| **Root Cause / 根因** | Input to `marked.parse()` is already garbled or `marked.parse()` not called at all |
+| **Fix (1-liner)** | Verify `marked.parse(input)` receives clean UTF-8 text; call `marked.parse()` after DOM insertion |
+| **Reference / 参考** | [markdown_render.md](references/markdown_render.md) |
+
+### Pattern D: Code Block No Highlighting Fix / 代码块无高亮修复
+
+| Item | Detail |
+|------|--------|
+| **Symptom / 现象** | Code blocks render but without syntax colors |
+| **Root Cause / 根因** | `hljs.highlightElement()` not called after Markdown rendering, or Highlight.js not loaded |
+| **Fix (1-liner)** | `document.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el))` |
+| **Reference / 参考** | [markdown_render.md](references/markdown_render.md) |
+
+### Pattern E: Consecutive Chat No Response Fix / 连续对话无响应修复
+
+| Item | Detail |
+|------|--------|
+| **Symptom / 现象** | First message works fine; second message stuck with no response |
+| **Root Cause / 根因** | `#streamingMsg` element ID not cleaned after first completion; AbortController not reset |
+| **Fix (1-liner)** | `el.removeAttribute('id')` after stream ends + `abortCtl = new AbortController()` |
+| **Reference / 参考** | [frontend_sse.md](references/frontend_sse.md) |
+
+### Pattern F: Tool Call Output Leak Fix / 工具调用输出泄露修复
+
+| Item | Detail |
+|------|--------|
+| **Symptom / 现象** | Raw tool call output (e.g., `</function>`, `save_qa_to_knowledge_base`) visible in chat UI |
+| **Root Cause / 根因** | Backend tool-call responses not filtered before sending to client |
+| **Fix (1-liner)** | `cleanToolOutput(text)` — regex filter with case-insensitive matching on tool call patterns |
+| **Reference / 参考** | [markdown_render.md](references/markdown_render.md) |
+
+### Pattern G: Formula/Diagram Not Displaying Fix / 公式/图表不显示修复
+
+| Item | Detail |
+|------|--------|
+| **Symptom / 现象** | KaTeX formulas show raw LaTeX; Mermaid diagrams show raw code |
+| **Root Cause / 根因** | KaTeX delimiters not configured or render not triggered; Mermaid `mermaid.run()` not called after DOM update |
+| **Fix (1-liner)** | KaTeX: `renderMathInElement(el, {delimiters: [...]})`; Mermaid: `await mermaid.run({querySelector: '.mermaid'})` |
+| **Reference / 参考** | [markdown_render.md](references/markdown_render.md) |
+
+### Pattern H: Performance Stuttering Fix / 性能卡顿修复
+
+| Item | Detail |
+|------|--------|
+| **Symptom / 现象** | UI freezes or stutters during fast SSE streaming (>50 tokens/sec) |
+| **Root Cause / 根因** | Every token triggers full re-render (DOM update + Markdown parse + highlight) |
+| **Fix (1-liner)** | Debounce 50ms or throttle via `requestAnimationFrame`; render in batches of 80+ chars |
+| **Reference / 参考** | [performance.md](references/performance.md) |
+
 ## 常见错误速查
 
 | 现象 | 根因 | 修复 | 参考 |
@@ -94,6 +188,97 @@ metadata:
 | 移动端布局溢出 | 表格无横向滚动容器 | `.table-wrapper { overflow-x: auto }` | browser_support.md |
 | 屏幕阅读器无反馈 | 缺少 ARIA live regions | `role="log"` + `aria-live="polite"` | accessibility.md |
 | CDN 资源加载失败 | 国内网络限制 | 替换为 BootCDN / Staticfile 镜像 | browser_support.md |
+
+## Quality Checklist / 质量检查清单
+
+> Use this checklist to audit any chat UI template or Markdown renderer implementation.
+> 使用此检查清单审计任何聊天 UI 模板或 Markdown 渲染实现。
+
+### P0 — Must Pass / 必须通过
+
+- [ ] **Charset declarations**: `<meta charset="UTF-8">` in HTML head, `Content-Type: text/event-stream; charset=utf-8` in SSE response headers
+- [ ] **TextDecoder utf-8**: `new TextDecoder('utf-8')` explicitly declared (not default-reliant)
+- [ ] **DOMPurify enabled**: All `innerHTML` assignments pass through `DOMPurify.sanitize()`
+- [ ] **Tool output filtered**: `cleanToolOutput()` applied to all streaming content before rendering
+- [ ] **StreamingMsg ID cleaned**: `#streamingMsg` element has its `id` attribute removed after each stream completion
+- [ ] **No raw innerHTML**: No direct `element.innerHTML = userContent` calls without sanitization
+
+### P1 — Should Pass / 应该通过
+
+- [ ] **CDN fallback configured**: Multiple CDN mirrors configured for Highlight.js, KaTeX, Mermaid, Marked (BootCDN / Staticfile / cdnjs fallback chain)
+- [ ] **Mobile responsive**: All layouts adapt to viewport; table wrappers use `overflow-x: auto`; font sizes scale
+- [ ] **Keyboard shortcuts**: Enter to send, Shift+Enter for newline, Ctrl+Enter for send, Escape to cancel/focus
+- [ ] **ARIA live regions**: Chat message container has `role="log"` and `aria-live="polite"` for screen reader streaming
+- [ ] **Lazy loading**: Images use `loading="lazy"` and `decoding="async"` attributes
+
+### P2 — Nice to Have / 锦上添花
+
+- [ ] **Dark mode**: System-preference dark mode via `prefers-color-scheme` media query with manual toggle
+- [ ] **Virtual scrolling**: For chat histories >50 messages, use virtual list rendering to maintain performance
+- [ ] **CSP headers**: Content-Security-Policy headers configured to restrict inline scripts and external resources
+
+## Anti-Patterns / 反模式
+
+> Common mistakes and their correct alternatives. Each "Don't" is a real-world bug we've encountered.
+> 常见错误及其正确替代方案。每个"不要"都是我们遇到过的真实 Bug。
+
+| ❌ Don't / 不要 | ✅ Do / 应该 | Why / 原因 |
+|:----------------|:-------------|:-----------|
+| `new TextDecoder()` without `'utf-8'` | `new TextDecoder('utf-8')` | Default encoding varies by browser; some default to windows-1252 |
+| Decode tokens one-by-one | `enc.decode(all_tokens)` — batch decode | Single tokens split multi-byte UTF-8 sequences → U+FFFD (�) |
+| `el.innerHTML = text` without DOMPurify | `el.innerHTML = DOMPurify.sanitize(text)` | XSS attack vector — user/AI content can contain malicious scripts |
+| `TextDecoder.decode(chunk)` without `{stream: true}` | `decoder.decode(chunk, {stream: true})` | Without `stream: true`, incomplete multi-byte chars at chunk boundaries are lost |
+| Leave `#streamingMsg` ID after completion | `el.removeAttribute('id')` after stream ends | Second message cannot find target element → no response |
+| Display raw `tool_call` output to users | `cleanToolOutput(text)` filter before rendering | Tool call XML/JSON leaks into chat UI, confusing users |
+| Use `file://` protocol for SSE | Serve via HTTP (`http://localhost` or HTTPS) | SSE requires HTTP protocol; file:// has no streaming support |
+| Ignore `prefers-reduced-motion` | `@media (prefers-reduced-motion: reduce) { ... }` disable animations | Accessibility violation — users with motion sensitivity need reduced motion |
+
+## Design System / 设计系统
+
+> v3.0.0 introduces a 6-token design system for consistent visual identity across all templates.
+> v3.0.0 引入 6 令牌设计系统，为所有模板提供一致的视觉识别。
+
+### Color Tokens / 色彩标记
+
+```css
+:root {
+  --bg:      #fafaf7;  /* warm paper white background */
+  --surface: #ffffff;  /* card/module surface */
+  --fg:      #1a1916;  /* primary text — near-black with warmth */
+  --muted:   #6b6964;  /* secondary text / captions */
+  --border:  #e8e5df;  /* subtle borders / dividers */
+  --accent:  #4a90d9;  /* blue accent for tech/encoding context */
+}
+```
+
+### Typography Scale / 字体层级
+
+| Tier | Family | Usage | CSS |
+|:-----|:-------|:------|:----|
+| **Display** | Serif (`Georgia, "Noto Serif SC", serif`) | Hero titles, major headings | `font-family: Georgia, "Noto Serif SC", serif;` |
+| **Body** | Sans (`-apple-system, "PingFang SC", "Microsoft YaHei", sans-serif`) | Body text, messages, labels | `font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;` |
+| **Mono** | Monospace (`"Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, monospace`) | Code blocks, inline code, technical data | `font-family: "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, monospace;` |
+
+### Spacing Scale / 间距层级
+
+```css
+:root {
+  --space-xs:  0.25rem;  /* 4px  — inline gaps */
+  --space-sm:  0.5rem;   /* 8px  — compact padding */
+  --space-md:  1rem;     /* 16px — standard padding */
+  --space-lg:  1.5rem;   /* 24px — section spacing */
+  --space-xl:  2rem;     /* 32px — major section separation */
+  --space-2xl: 3rem;     /* 48px — page-level margins */
+}
+```
+
+## Version History / 版本历史
+
+| Version | Date | Highlights / 更新亮点 |
+|:--------|:-----|:----------------------|
+| **v3.0.0** | 2026-05 | Design system upgrade, Fix Pattern Catalog (8 numbered patterns), Quality Checklist (P0/P1/P2), Anti-Patterns documentation, Open Design integration |
+| **v2.0.0** | 2026-05 | Initial public release — 11 reference docs, production chat template, demo gallery, cross-framework adapters, 6 reverse proxy configs |
+| **v1.0.0** | 2026-05 | Internal release — core encoding fix patterns and diagnostic scripts |
 
 ## 快速诊断
 
@@ -164,9 +349,11 @@ python scripts/diagnose_encoding.py --test-text "你好世界"
 ### 安装
 
 ```bash
-# 复制到 OpenClaw skills 目录
+# 复制到 OpenClaw skills 目录（当前版本 v3.0.0）
 cp -r markdown-renderer-fix ~/.qclaw/skills/
 ```
+
+> 📦 **Current version: v3.0.0** — See [Version History / 版本历史](#version-history--版本历史) for details.
 
 ### 自动触发
 

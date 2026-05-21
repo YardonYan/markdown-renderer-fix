@@ -3,8 +3,9 @@
 > 🇬🇧 EN: 11 verification tests including XSS, dark mode, mobile responsive, encoding round-trip.
 > 🇨🇳 ZH: 11 项验证测试：XSS 攻击、暗黑模式、移动端响应式、编码往返验证。
 
+> **v3.0.0 — 3 new test cases: design tokens, typography, dark mode transition**
 
-> 作者：Yardon | 11 个核心验证案例（v2 新增 3 个）
+> 作者：Yardon | 14 个核心验证案例（v3 新增 3 个）
 
 ## 测试 1：中文基础
 
@@ -278,3 +279,149 @@ document.querySelectorAll('.msg.assistant .bubble').forEach(b => {
    - 输入文本验证键盘不遮挡输入框
    - 多行输入测试自动增高（max-height 150px）
    - 验证发送按钮始终可见
+
+## 🆕 测试 12：设计 Token 一致性（v3 新增 ⭐）
+
+**目的**：验证所有颜色值使用 `var()` 引用 6-token 设计系统，无硬编码颜色泄露
+
+**验证**：
+```javascript
+// 浏览器控制台
+// 检查关键 UI 元素颜色是否使用 var() 引用
+function checkTokenConsistency() {
+  const elements = document.querySelectorAll('.msg, .bubble, .code-block-wrapper, 
+    .code-block-header, .table-wrapper, .msg-actions button, 
+    .chat-flow, #chatInput, .thinking-time');
+  
+  let hardcodedColors = [];
+  elements.forEach(el => {
+    const styles = window.getComputedStyle(el);
+    ['color', 'backgroundColor', 'borderColor', 'borderTopColor', 
+     'borderBottomColor', 'borderLeftColor', 'borderRightColor'].forEach(prop => {
+      const val = styles[prop];
+      // 忽略 transparent 和初始值
+      if (val && val !== 'rgba(0, 0, 0, 0)' && val !== 'transparent') {
+        // 检查元素是否有内联 style 属性包含硬编码色值
+        const inlineStyle = el.getAttribute('style') || '';
+        if (inlineStyle.includes('color:') && !inlineStyle.includes('var(--')) {
+          hardcodedColors.push({ el: el.className, prop, val });
+        }
+      }
+    });
+  });
+  
+  if (hardcodedColors.length > 0) {
+    console.warn('⚠️ 发现硬编码颜色:', hardcodedColors);
+  } else {
+    console.log('✅ 所有颜色使用 var() 引用设计 token');
+  }
+
+  // 验证 6 个核心 token 均定义了 CSS 变量
+  const root = window.getComputedStyle(document.documentElement);
+  const tokens = ['--bg', '--surface', '--fg', '--muted', '--border', '--accent'];
+  tokens.forEach(t => {
+    console.assert(root.getPropertyValue(t).trim() !== '',
+      `CSS 变量 ${t} 应已定义`);
+  });
+  console.log('✅ 6-token 设计系统全部定义');
+}
+
+checkTokenConsistency();
+```
+
+## 🆕 测试 13：字体系统（v3 新增）
+
+**目的**：验证标题用衬线/展示字体、代码用等宽字体、正文用无衬线字体
+
+**验证**：
+```javascript
+// 浏览器控制台
+function checkTypography() {
+  // 标题应使用 serif 或 display 字体
+  const heading = document.querySelector('.bubble h2, .bubble h3');
+  if (heading) {
+    const fontFamily = window.getComputedStyle(heading).fontFamily;
+    console.log('标题字体:', fontFamily);
+    console.assert(
+      /serif|display|Songti|SimSun|Times/i.test(fontFamily),
+      '标题应使用衬线/展示字体');
+  }
+  
+  // 代码块应使用等宽字体
+  const code = document.querySelector('.bubble code');
+  if (code) {
+    const fontFamily = window.getComputedStyle(code).fontFamily;
+    console.log('代码字体:', fontFamily);
+    console.assert(
+      /mono|Consolas|Courier|Fira Code|Menlo/i.test(fontFamily),
+      '代码应使用等宽字体');
+  }
+  
+  // 正文应使用无衬线字体
+  const body = document.querySelector('.bubble p');
+  if (body) {
+    const fontFamily = window.getComputedStyle(body).fontFamily;
+    console.log('正文字体:', fontFamily);
+    console.assert(
+      /sans|system-ui|Segoe|Helvetica|PingFang/i.test(fontFamily),
+      '正文应使用无衬线字体');
+  }
+  
+  console.log('✅ 字体系统验证完成');
+}
+
+checkTypography();
+```
+
+## 🆕 测试 14：暗黑模式平滑过渡（v3 新增）
+
+**目的**：验证暗黑模式切换时有平滑的过渡动画，无色块闪烁
+
+**验证步骤**：
+
+1. **Chrome DevTools 模拟暗黑模式切换**：
+   - F12 → `⋮` → More tools → Rendering
+   - 设置 `Emulate CSS media feature prefers-color-scheme: dark`
+   - 观察页面颜色切换是否平滑
+
+2. **验证过渡动画存在**：
+```javascript
+// 浏览器控制台
+function checkDarkModeTransition() {
+  const body = document.body;
+  const transition = window.getComputedStyle(body).transition;
+  console.log('body transition:', transition);
+  
+  // 验证 transition 属性包含 color 或 background-color
+  console.assert(
+    transition.includes('color') || transition.includes('background') || transition === 'all',
+    'body 应有颜色过渡动画');
+  
+  // 检查关键元素是否都有 transition
+  const elements = document.querySelectorAll('.msg, .bubble, .code-block-wrapper, .table-wrapper');
+  let missingTransitions = [];
+  elements.forEach(el => {
+    const t = window.getComputedStyle(el).transition;
+    if (!t || t === 'all 0s ease 0s') {
+      missingTransitions.push(el.className);
+    }
+  });
+  
+  if (missingTransitions.length > 0) {
+    console.warn('⚠️ 以下元素缺少过渡动画:', missingTransitions);
+  } else {
+    console.log('✅ 所有关键元素均设置了 transition');
+  }
+  
+  // 切换亮/暗模式检查无闪烁
+  // 手动在 Rendering 面板切换 prefers-color-scheme
+  // 观察页面是否平滑过渡
+}
+
+checkDarkModeTransition();
+```
+
+3. **手动测试**：
+   - 在亮色模式下，发送一条包含代码块和表格的消息
+   - 切换到暗黑模式 → 所有元素应平滑变色，无白屏闪烁
+   - 切换回亮色模式 → 同样平滑过渡

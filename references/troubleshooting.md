@@ -3,8 +3,34 @@
 > 🇬🇧 EN: 6-step escalation flow, common error patterns, diagnostic commands.
 > 🇨🇳 ZH: 6 步逐层排查流程、常见错误模式、诊断命令。
 
+> **v3.0.0 — Version compatibility notes added**
 
 > 作者：Yardon | 6 步骤逐层排查
+
+## Version Compatibility / 版本兼容性
+
+### v3.0.0 主要变化
+
+| 变更项 | 说明 |
+|--------|------|
+| 设计 Token 系统 | 从旧版硬编码颜色迁移到 6-token CSS 自定义属性（`--bg`、`--surface`、`--fg`、`--muted`、`--border`、`--accent`） |
+| 快速问题模式卡片 | encoding_fix.md、markdown_render.md 新增 Quick Pattern Card，加速问题定位 |
+| SSE 质量检查清单 | frontend_sse.md 新增 8 项质量检查清单 |
+| 设计 Token 集成 | framework_adaptation.md 新增四框架 Token 集成示例 |
+| 过渡动画 | 消息渲染加入 `fadeUp` 动画 |
+| 字体系统 | 标题使用 `text-wrap: balance`，代码块样式引用设计 token |
+
+> ⚠️ **从 v2.0.0 升级的用户注意**：v3.0.0 的设计 token 已变更。如果你从 v2 升级，需要更新你的 CSS 变量以匹配新的 6-token 命名体系：
+> ```css
+> /* v2 旧变量 → v3 新变量映射 */
+> /* --primary-bg → --bg */
+> /* --card-bg   → --surface */
+> /* --text-primary → --fg */
+> /* --text-secondary → --muted */
+> /* --divider → --border */
+> /* --brand → --accent */
+> ```
+> 请参考 [framework_adaptation.md](framework_adaptation.md) 中的 Design Token Integration 章节获取完整迁移指引。
 
 ## 快速诊断
 

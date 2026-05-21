@@ -3,6 +3,7 @@
 > 🇬🇧 EN: SSE EventSource/fetch consumption, timeout handling, reconnection, TextDecoder stream mode.
 > 🇨🇳 ZH: SSE EventSource/fetch 消费、超时处理、断线重连、TextDecoder 流模式。
 
+> **v3.0.0 — SSE Quality Checklist added**
 
 > 作者：Yardon | JavaScript 原生实现 + 框架适配
 
@@ -185,3 +186,16 @@ async function sendWithRetry(payload, maxRetries = 2) {
 | SSE 超时 | `Error('timeout')` | "响应较慢，正在切换..." | 降级到非流式 |
 | 网络断开 | `TypeError` | "无法连接到后端服务" | 提示检查服务 |
 | 服务器错误 | `Error('stream error')` | 具体错误信息 | 重试 1 次 |
+
+## SSE Quality Checklist / SSE 实现质量检查清单
+
+在实现或审查 SSE 消费者代码时，逐项检查以下要点：
+
+- [ ] `TextDecoder` 使用 `new TextDecoder('utf-8')` 显式指定编码
+- [ ] `TextDecoder.decode()` 循环中传入 `{ stream: true }`，循环结束后调用无参 `decode()` 刷新缓冲区
+- [ ] SSE 行分隔同时兼容 `\r\n` 和 `\n`（使用 `split(/\r?\n/)`）
+- [ ] `[DONE]` 信号正确终止流式循环（同时退出内层 for 和外层 while）
+- [ ] `AbortController` 用于超时处理和用户取消，`signal` 传入 `fetch()`
+- [ ] `reader.releaseLock()` 在 `finally` 块中执行，确保资源释放
+- [ ] 流式消息 `id` 属性在完成后清理（如移除 `#streamingMsg` 的 id）
+- [ ] 错误状态以用户可见方式展示（UI 提示），而非仅 `console.error`

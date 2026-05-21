@@ -3,10 +3,27 @@
 > 🇬🇧 EN: XSS prevention, DOMPurify sanitization, CSP headers, dangerous protocol filtering.
 > 🇨🇳 ZH: XSS 防护、DOMPurify 净化、CSP 配置、危险协议过滤。
 
+> **v3.0.0 — Open Design CSP context & user-input sanitization**
 
 > 作者：Yardon | Markdown 渲染安全
 >
 > ✅ **文档与代码已同步**（v3，2026-05-06）：以下所有防护方案均已在 `chat_template.html` 和 `demo.html` 中实现。
+
+## 🚨 P0 规则：禁止裸 innerHTML
+
+> **永远不要在没有 DOMPurify 净化的情况下使用 `innerHTML` 赋值用户内容。**
+
+```javascript
+// ❌ 致命错误 — 直接导致 XSS
+container.innerHTML = marked.parse(userInput);
+
+// ✅ 安全做法 — 必须经过 DOMPurify
+const raw = marked.parse(userInput);
+const clean = DOMPurify.sanitize(raw, { /* allowed tags/attrs */ });
+container.innerHTML = clean;
+```
+
+> 本规则适用于所有框架：React 的 `dangerouslySetInnerHTML`、Vue 的 `v-html`、Angular 的 `[innerHTML]`、Svelte 的 `{@html}` — 所有这些都必须在赋值前通过 DOMPurify 净化。
 
 ## XSS 风险
 
@@ -156,6 +173,54 @@ assets/
 | `font-src cdn.jsdelivr.net` | 允许加载 KaTeX 字体 | 公式字体不加载 |
 | `script-src cdnjs.cloudflare.com cdn.jsdelivr.net` | 允许加载 marked/highlight.js/KaTeX/Mermaid | 所有 CDN 脚本被禁 |
 | `style-src cdnjs.cloudflare.com cdn.jsdelivr.net` | 允许加载 highlight.js/KaTeX CSS | 高亮/公式样式丢失 |
+
+## CSP 与 SSE + Markdown 渲染上下文
+
+在 SSE 流式 + Markdown 渲染场景中，CSP 需要额外注意以下几点：
+
+| 关注点 | 说明 | 对策 |
+|--------|------|------|
+| `connect-src` | SSE 通过 `fetch()` 消费，必须允许后端域名 | 设置 `connect-src 'self'` 或指定后端域名 |
+| `script-src` | marked.js / hljs / DOMPurify / KaTeX / Mermaid 等库来自 CDN | 明确列出 CDN 域名；规划 `unsafe-inline` 迁移 |
+| `style-src` | highlight.js 主题 CSS、KaTeX 字体 CSS 来自 CDN | 明确列出 CDN 域名 |
+| `font-src` | KaTeX 字体文件（woff2）来自 CDN | 明确列出 CDN 域名 |
+| `img-src` | Markdown 中用户可能引用外部图片 | 最小化：`data:` + 受信任域名白名单 |
+
+```html
+<!-- SSE + Markdown 场景的推荐 CSP 最小配置 -->
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self';
+  script-src 'self' cdn.bootcdn.net cdn.staticfile.net cdn.jsdelivr.net;
+  style-src 'self' cdn.bootcdn.net cdn.staticfile.net cdn.jsdelivr.net;
+  img-src 'self' data: https:;
+  connect-src 'self';
+  font-src 'self' cdn.jsdelivr.net;">
+```
+
+> ⚠️ 若仍使用 `unsafe-inline`，建议规划 nonce 或外部文件迁移（见上方「迁移路径」）。
+
+## 用户输入净化建议
+
+在聊天场景中，用户在输入框中键入的内容在渲染到页面前应经过以下处理：
+
+```javascript
+function sanitizeUserInput(raw) {
+  // 1. 去除不可见控制字符（U+0000-U+001F 除了 \n \r \t）
+  let clean = raw.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+  // 2. 限制最大长度
+  const MAX_LENGTH = 50000;
+  if (clean.length > MAX_LENGTH) {
+    clean = clean.slice(0, MAX_LENGTH);
+  }
+
+  // 3. 通过 marked + DOMPurify 渲染
+  // （DOMPurify 在渲染时自动处理 XSS）
+  return clean;
+}
+```
+
+> 用户消息本身风险较低（因 DOMPurify 在渲染时统一处理），但输入清理可减少意外的控制字符导致布局破坏。
 
 ## 安全检查清单
 

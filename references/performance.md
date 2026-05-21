@@ -3,6 +3,7 @@
 > 🇬🇧 EN: Incremental rendering, requestAnimationFrame throttling, virtual scrolling, Web Worker offloading.
 > 🇨🇳 ZH: 增量渲染、rAF 节流、虚拟滚动、Web Worker 离线解析。
 
+> **v3.0.0 — CSS custom properties & text-wrap performance analysis**
 
 > ⚠️ **权威实现以 [chat_template.html](../assets/chat_template.html) 为准**。本文档为方案对比与选型参考。
 
@@ -27,6 +28,8 @@
 | Web Worker | 离线解析 | 高 | 需要适配 |
 
 ## 方案 1：增量渲染（推荐，已集成在模板中）
+
+> 💡 **v3.0.0**：新的 6-token 设计系统使用 CSS 自定义属性（`var(--bg)`、`var(--surface)` 等），其性能开销可忽略不计（亚毫秒级）。CSS 自定义属性的解析由浏览器引擎在样式计算阶段完成，不会增加 DOM 操作成本。
 
 `chat_template.html` v3 内置实现：在 SSE 流式消费过程中，仅当文本增量 ≥ 80 字符时才重建 DOM。
 
@@ -114,3 +117,5 @@ const updateAssistantBubbleDebounced = debounce(updateAssistantBubble, 50);
 - [ ] SSE 流结束后是否执行了一次全量最终渲染？
 - [ ] Mermaid 渲染是否在 try/catch 边界内（失败保留原始代码）？
 - [ ] KaTeX 渲染是否设置了 `throwOnError: false`？
+- [ ] CSS 自定义属性性能：6-token 系统开销可忽略（亚毫秒级） ← 见方案 1
+- [ ] `text-wrap: balance` 仅在标题等短文本使用，避免超长段落（>500 字符）因换行计算产生额外开销

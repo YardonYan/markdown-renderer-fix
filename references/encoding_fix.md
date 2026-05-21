@@ -3,8 +3,14 @@
 > 🇬🇧 EN: tiktoken root cause, GBK/UTF-8 mixing, tokenizer compatibility matrix, diagnostic code insertion guide.
 > 🇨🇳 ZH: tiktoken 根因分析、GBK/UTF-8 混用、Tokenizer 兼容矩阵、诊断代码插入指引。
 
+> **v3.0.0 — Quick Pattern Cards added; 6-token design system diagnostic colors**
 
 > 作者：Yardon | 基于实战修复经验编写
+
+## Quick Pattern Card / 快速问题模式
+
+> **Fix Pattern A**：tiktoken U+FFFD 乱码 → 使用 `enc.decode(all_tokens)` 一次性解码（见下方「根因：tiktoken 单 token 解码」）
+> **Fix Pattern B**：GBK 混用乱码（"锟斤拷"型） → 检查所有 charset 声明是否为 UTF-8（见下方「GBK/UTF-8 混用乱码」）
 
 ## 快速诊断
 
@@ -53,6 +59,8 @@ for i in range(0, len(answer), 24):
 - `repr(chunk)` 含 `\ufffd` → tiktoken 根因（见下方章节）
 - `repr(chunk)` 含 `\\x` 字节序列 → GBK/UTF-8 混用（见 GBK 章节）
 - `repr(chunk)` 正常但前端乱码 → TextDecoder / SSE 帧格式问题
+
+> 💡 **v3.0.0 诊断输出增强**：诊断检查中使用 6-token 设计系统的颜色标记输出状态——🟢 绿色表示通过（`--fg`），🔴 红色表示失败（`--accent` 错误态），🟡 黄色表示警告（`--muted`）。这样在终端中可快速识别问题等级。
 
 ## GBK/UTF-8 混用乱码（"锟斤拷" 型）
 

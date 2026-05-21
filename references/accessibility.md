@@ -3,10 +3,13 @@
 > 🇬🇧 EN: WCAG compliance, ARIA attributes, keyboard shortcuts, color contrast, screen reader support.
 > 🇨🇳 ZH: WCAG 合规、ARIA 属性、键盘快捷键、颜色对比度、屏幕阅读器支持。
 
+> **v3.0.0 — Enhanced for Open Design integration**
 
 > 作者：Yardon | Accessibility (A11y) 支持
 
 ## ARIA Live Regions
+
+> 💡 **v3.0.0 提示**：SSE 流式更新与 ARIA live regions 结合时，使用 `aria-atomic="false"` + 增量文本播报方案效果最佳。流式更新频率受 6-token 设计系统的文本块大小（~24 字符）控制，自然形成适当的播报节奏，避免屏幕阅读器因过快更新而堆叠朗读队列。
 
 流式内容播报需要 ARIA live regions 让屏幕阅读器感知内容更新。
 
@@ -149,6 +152,24 @@ function afterSend() {
 }
 ```
 
+## text-wrap 排版优化
+
+> `text-wrap: balance` 用于标题，`text-wrap: pretty` 用于正文段落
+
+```css
+/* 标题：均匀换行，避免孤字悬垂 */
+h1, h2, h3, h4, h5, h6 {
+  text-wrap: balance;
+}
+
+/* 正文段落：智能断行，避免连字符孤行 */
+p, li {
+  text-wrap: pretty;
+}
+```
+
+> **注意**：`text-wrap: balance` 限制最多 6 行，超出则退化为普通换行。适合标题等短文本，不建议用于超长段落。`text-wrap: pretty` 无行数限制，适合正文。
+
 ## 无障碍检查清单
 
 - [ ] 消息列表使用 `role="log"` + `aria-live="polite"`
@@ -159,4 +180,5 @@ function afterSend() {
 - [ ] 焦点在发送后自动回到输入框
 - [ ] 颜色对比度满足 WCAG AA
 - [ ] 支持 `prefers-reduced-motion`
+- [ ] 标题使用 `text-wrap: balance`，正文使用 `text-wrap: pretty`
 - [ ] 屏幕阅读器可访问错误提示

@@ -2,9 +2,10 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-5.0.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![OpenClaw Skill](https://img.shields.io/badge/OpenClaw-Skill-%237BA7A6)](https://github.com/nicepkg/openclaw)
+[![OpenDesign](https://img.shields.io/badge/OpenDesign-Integrated-%234a90d9)](CHANGELOG.md)
 
 **一站式修复大模型 SSE 流式输出中的中文乱码、Markdown 渲染异常与前端展示问题。**
 
@@ -15,6 +16,19 @@
   <br>
   <em>这个 Skill 从根因出发彻底解决——8 阶段数据流全链路排查 + 开箱即用的生产级模板。</em>
 </p>
+
+---
+
+## 🆕 What's New / 更新内容
+
+> **v3.0.0** — Open Design Integration 🎨 / Open Design 整合 🎨
+
+- **Fix Pattern Catalog** — 8 numbered patterns with symptom → root cause → fix → reference for systematic debugging
+- **6-Token Design System** — Unified color, typography, and spacing tokens for consistent chat UI
+- **Quality Checklist** — P0/P1/P2 tiered quality gates to audit any Markdown renderer implementation
+- **Anti-Patterns Documentation** — Common mistakes documented with concrete "don't" → "do" guidance
+- **Open Design Integration** — `od:` metadata frontmatter block for skill discovery and categorization
+- **Enhanced Visual Design** — Refined card design, spacing rhythm, and interactive states in demo and chat templates
 
 ---
 
@@ -171,6 +185,17 @@ python scripts/diagnose_encoding.py --deps
 # 指定中文测试文本
 python scripts/diagnose_encoding.py --test-text "你好世界" --full
 ```
+
+### v3.0.0 更新亮点 / v3.0.0 Highlights
+
+| 更新项 | 说明 |
+|:-------|:-----|
+| **Fix Pattern Catalog** | 8 numbered patterns (A–H) with standardized symptom → root cause → fix → reference format; supports Japanese (hiragana/katakana) and Korean (Hangul) encoding scenarios |
+| **Design System Upgrade** | 6-token color system (`--bg`, `--surface`, `--fg`, `--muted`, `--border`, `--accent`) + 3-tier typography (display serif / body sans / mono) + spacing scale |
+| **Quality Assurance Framework** | P0 (must pass) / P1 (should pass) / P2 (nice to have) three-tier checklist covering charset, security, accessibility, performance |
+| **Anti-Patterns** | 8 documented common mistakes with concrete fix alternatives — all based on real-world debugging experience |
+| **Visual Design** | Professional polish across demo.html (card gallery with design tokens) and chat_template.html (refined typography, improved dark mode) |
+| **Open Design Integration** | `od:` frontmatter metadata block for standardized skill discovery and categorization |
 
 
 

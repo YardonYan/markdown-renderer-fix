@@ -3,6 +3,7 @@
 > 🇬🇧 EN: Browser support matrix, CDN availability, fallback strategies, domestic mirror recommendations.
 > 🇨🇳 ZH: 浏览器兼容矩阵、CDN 可用性、渐进增强降级策略、国内镜像推荐。
 
+> **v3.0.0 — Updated CDN mirrors & color-mix() support matrix**
 
 > 作者：Yardon | 兼容性矩阵与已知限制
 
@@ -32,6 +33,7 @@
 | `Mermaid` | ✅ | ✅ | ✅ | 同上 |
 | CSS `@media (prefers-color-scheme)` | ✅ 76+ | ✅ 67+ | ✅ 12.1+ | 所有主流支持 |
 | CSS Variables | ✅ 49+ | ✅ 31+ | ✅ 9.1+ | 广泛支持 |
+| `color-mix()` | ✅ 111+ | ✅ 113+ | ✅ 16.2+ | 较新特性，需 fallback |
 | `fetch()` + streaming body | ✅ 90+ | ✅ 88+ | ⚠️ 15.4+ | 见下方 Safari 说明 |
 
 ## 各浏览器已知限制
@@ -71,13 +73,32 @@
 
 | CDN 资源 | 域名 | 国内访问 | 建议 |
 |:---------|:-----|:--------:|:-----|
-| marked.js | cdnjs.cloudflare.com | ⚠️ 不稳定 | 国内部署用 BootCDN 或自建 |
+| marked.js | cdnjs.cloudflare.com | ⚠️ 不稳定 | 国内用 BootCDN / Staticfile / 自建 |
 | highlight.js | cdnjs.cloudflare.com | ⚠️ 不稳定 | 同上 |
 | DOMPurify | cdnjs.cloudflare.com | ⚠️ 不稳定 | 同上 |
 | KaTeX | cdn.jsdelivr.net | ⚠️ 不稳定 | 可用 npm 安装或 CN 镜像 |
 | Mermaid | cdn.jsdelivr.net | ⚠️ 不稳定 | 同上 |
 
-> 国内用户建议将所有 CDN 依赖替换为国内镜像（如 BootCDN、Staticfile CDN）或自托管，避免加载超时。已实现 CDN 降级检测：3 秒后未加载完成显示提示。
+### 国内 CDN 镜像推荐
+
+| 镜像源 | 域名 | 覆盖资源 | 备注 |
+|:-------|:-----|:---------|:-----|
+| **BootCDN** | `cdn.bootcdn.net` | marked、highlight.js、DOMPurify | 国内速度优秀，资源覆盖广 |
+| **Staticfile CDN** | `cdn.staticfile.net` | marked、highlight.js、DOMPurify | 七牛云 CDN，稳定性好 |
+| jsDelivr（国内线路） | `cdn.jsdelivr.net` | KaTeX、Mermaid | 部分线路可用，建议备选 |
+
+```html
+<!-- 国内 CDN 替换示例 -->
+<script src="https://cdn.bootcdn.net/ajax/libs/marked/12.0.1/marked.min.js"></script>
+<link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<script src="https://cdn.bootcdn.net/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+
+<!-- 或使用 Staticfile CDN -->
+<!-- <script src="https://cdn.staticfile.net/marked/12.0.1/marked.min.js"></script> -->
+```
+
+> 国内用户建议将所有 CDN 依赖替换为国内镜像（首选 BootCDN，备选 Staticfile CDN）或自托管，避免加载超时。已实现 CDN 降级检测：3 秒后未加载完成显示提示。
 
 ## 浏览器检测（可选）
 
@@ -99,6 +120,34 @@ function checkCompatible() {
   }
 }
 ```
+
+## `color-mix()` 兼容性与 Fallback
+
+`color-mix()` 是 CSS Color Level 5 的函数，浏览器支持情况：
+
+| 浏览器 | 最低版本 |
+|:-------|:--------:|
+| Chrome | 111+ |
+| Firefox | 113+ |
+| Safari | 16.2+ |
+| Edge | 111+ |
+
+### Fallback 策略：静态颜色兜底
+
+```css
+/* ✅ 现代浏览器享用 color-mix()，旧浏览器降级到固定色值 */
+:root {
+  --surface-hover: var(--bg);  /* fallback: 使用邻近 token */
+}
+
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  :root {
+    --surface-hover: color-mix(in srgb, var(--surface) 90%, var(--accent));
+  }
+}
+```
+
+> 6-token 设计系统中的 `--surface`、`--bg`、`--accent` 等变量天然适合作为 `color-mix()` 的 fallback，无需额外维护硬编码颜色值。
 
 ## 渐进增强策略
 

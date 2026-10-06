@@ -1,5 +1,6 @@
 ---
 name: markdown-renderer-fix
+license: Apache-2.0
 description: |
   [v3.0.0] [EN] Mandatory trigger for Markdown rendering, SSE streaming, Chinese garbled text,
   code highlighting, Mermaid diagrams, KaTeX formulas, and tool-call output filtering.

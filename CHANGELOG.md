@@ -3,6 +3,16 @@
 All notable changes to the markdown-renderer-fix Skill.
 markdown-renderer-fix Skill 的所有重要变更。
 
+## Unreleased — License Change / 协议变更
+
+- **License**: MIT → Apache-2.0, aligning with the author's other skills
+- **协议**: 由 MIT 变更为 Apache-2.0，与作者其他 skill 保持一致
+- LICENSE file moved to repository root and renamed to `LICENSE` (was untracked by GitHub in a subdirectory)
+- LICENSE 文件移至仓库根目录并规范命名（此前位于子目录，GitHub 未能识别）
+
+Note: this change applies to new versions only. Copies distributed before this change remain under MIT.
+说明：本次变更仅对新版本生效，此前分发的副本仍按 MIT 授权。
+
 ## v3.0.0 (2026-05-21) — Open Design Integration 🎨 / Open Design 整合 🎨
 
 ### Design System

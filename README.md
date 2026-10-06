@@ -3,7 +3,7 @@
 <div align="center">
 
 [![Version](https://img.shields.io/badge/version-3.0.0-blue)](CHANGELOG.md)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![OpenClaw Skill](https://img.shields.io/badge/OpenClaw-Skill-%237BA7A6)](https://github.com/nicepkg/openclaw)
 [![OpenDesign](https://img.shields.io/badge/OpenDesign-Integrated-%234a90d9)](CHANGELOG.md)
 
@@ -212,4 +212,4 @@ python scripts/diagnose_encoding.py --test-text "你好世界" --full
 
 ## 📄 许可证
 
-MIT © [Yardon](LICENSE)
+Apache-2.0 © [Yardon](LICENSE)

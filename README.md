@@ -1,21 +1,43 @@
-# markdown-renderer-fix
-
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-3.0.0-blue)](CHANGELOG.md)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
-[![OpenClaw Skill](https://img.shields.io/badge/OpenClaw-Skill-%237BA7A6)](https://github.com/nicepkg/openclaw)
-[![OpenDesign](https://img.shields.io/badge/OpenDesign-Integrated-%234a90d9)](CHANGELOG.md)
+# markdown-renderer-fix
 
-**一站式修复大模型 SSE 流式输出中的中文乱码、Markdown 渲染异常与前端展示问题。**
+**一站式修复大模型 SSE 流式输出中的中文乱码、Markdown 渲染异常与前端展示问题**
+
+**One-stop fix for Chinese garbled text, Markdown rendering and SSE streaming issues in LLM apps**
+
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/YardonYan/markdown-renderer-fix?style=social)](https://github.com/YardonYan/markdown-renderer-fix)
+[![Version](https://img.shields.io/badge/version-3.0.0-green)](#)
+[![Platform](https://img.shields.io/badge/platform-OpenClaw%20%C2%B7%20Claude%20Code%20%C2%B7%20Cursor-orange)](#quick-start)
+[![OpenDesign](https://img.shields.io/badge/OpenDesign-Integrated-%234a90d9)](CHANGELOG.md)
 
 </div>
 
-<p align="center">
+---
+
+<div align="center">
+
+<a href="#intro"><b>这是什么</b></a> ·
+<a href="#quick-start"><b>快速开始</b></a> ·
+<a href="#why"><b>为什么需要</b></a> ·
+<a href="#docs"><b>文档导航</b></a> ·
+<a href="#diagnose"><b>诊断命令</b></a> ·
+<a href="#license"><b>许可证</b></a>
+
+</div>
+
+---
+
+
+**一站式修复大模型 SSE 流式输出中的中文乱码、Markdown 渲染异常与前端展示问题。**
+
+
   <em>你的大模型回答得再好，"" 和 "锟斤拷" 也能一键毁掉所有体验。</em>
   <br>
   <em>这个 Skill 从根因出发彻底解决——8 阶段数据流全链路排查 + 开箱即用的生产级模板。</em>
-</p>
+
+---
 
 ---
 
@@ -64,6 +86,8 @@
 
 
 
+<a id="quick-start"></a>
+
 ## 🚀 快速开始
 
 > 💡 **在线演示**: [GitHub Pages Demo](https://yardonyan.github.io/markdown-renderer-fix/)
@@ -89,6 +113,8 @@ python scripts/diagnose_encoding.py --full
 
 ---
 
+<a id="why"></a>
+
 ## ❓ 为什么需要这个 Skill
 
 SSE 流式 + 中文文本 + Markdown 渲染，看似简单，实际穿越前后端 **8 个数据阶段**：
@@ -108,6 +134,8 @@ SSE 流式 + 中文文本 + Markdown 渲染，看似简单，实际穿越前后�
 
 ---
 
+<a id="intro"></a>
+
 ## 🧩 这是什么
 
 这是一个 **[OpenClaw Skill](https://github.com/nicepkg/openclaw)**——可复用的 AI 指令模块，OpenClaw 在检测到 Markdown 渲染或编码问题时自动加载。
@@ -122,6 +150,8 @@ SSE 流式 + 中文文本 + Markdown 渲染，看似简单，实际穿越前后�
 | `SKILL.md` + `references/` | OpenClaw AI 指导 | 需 OpenClaw 环境 |
 
 ---
+
+<a id="docs"></a>
 
 ## 📚 文档导航
 
@@ -170,6 +200,8 @@ SSE 流式 + 中文文本 + Markdown 渲染，看似简单，实际穿越前后�
 
 ---
 
+<a id="diagnose"></a>
+
 ## 🔧 快速诊断命令
 
 ```bash
@@ -210,6 +242,13 @@ python scripts/diagnose_encoding.py --test-text "你好世界" --full
 
 ---
 
+
+<a id="license"></a>
+
 ## 📄 许可证
 
-Apache-2.0 © [Yardon](LICENSE)
+**Apache-2.0** — 自由使用、修改、分发，需保留署名与协议声明。详见 [LICENSE](LICENSE)。
+
+Free to use, modify and distribute, provided that attribution and the license notice are retained. See [LICENSE](LICENSE) for the full text.
+
+Copyright 2026 YardonYan

@@ -3,6 +3,17 @@
 All notable changes to the markdown-renderer-fix Skill.
 markdown-renderer-fix Skill 的所有重要变更。
 
+## Unreleased — README Facade / README 门面升级
+
+- **Hero banner**: New `assets/hero.png` showing the garbled-before / clean-after contrast
+- **Stage diagram**: New `assets/stages.png` visualising the 8-stage data flow, with the four high-risk stages highlighted
+- **English README**: Added `README.en.md`, mirroring the Chinese README section by section, with a `中文 · English` switcher in both
+- **Image generator**: Added `tools/gen_readme_images.py` so the README images are reproducible
+- **门面图**：新增 `assets/hero.png`，直观呈现「修复前乱码 / 修复后正常」的对比
+- **链路图**：新增 `assets/stages.png`，把 8 个数据阶段画清楚，并标出 4 个高风险环节
+- **英文版**：新增 `README.en.md`，与中文版章节一一对应，两份 README 顶部互加语言切换
+- **配图脚本**：新增 `tools/gen_readme_images.py`，配图可复现
+
 ## Unreleased — License Change / 协议变更
 
 - **License**: MIT → Apache-2.0, aligning with the author's other skills

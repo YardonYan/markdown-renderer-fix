@@ -161,22 +161,43 @@ node tools/install.mjs --ai workbuddy  # 装到某一个
 node tools/install.mjs --ai all        # 一次装到全部
 ```
 
-### 各助手对应的目录
+### 国内工具
 
 | 目标 id | 助手 | 全局目录 | 项目内目录 |
 | --- | --- | --- | --- |
 | `workbuddy` | WorkBuddy | `~/.workbuddy/skills` | `.workbuddy/skills` |
-| `trae-cn` | TRAE 国内版 | `~/.trae-cn/skills` | `.trae-cn/skills` |
 | `codebuddy` | CodeBuddy | `~/.codebuddy/skills` | `.codebuddy/skills` |
+| `trae-cn` | TRAE 国内版 | `~/.trae-cn/skills` | `.trae-cn/skills` |
+| `qoder` | Qoder | `~/.qoder-cn/skills` | `.qoder/skills` |
+| `qwen` | Qwen Code | `~/.qwen/skills` | `.qwen/skills` |
+| `openclaw` | OpenClaw | `~/.openclaw/workspace/skills` | `.openclaw/skills` |
+| `cc-switch` | cc-switch | `~/.cc-switch/skills` | `.cc-switch/skills` |
+
+Qoder 装完需要执行 `/skills reload` 或重启会话才会识别。OpenClaw 另有技能市场 SkillHub（腾讯云托管，`openclaw skill install <slug>`），国内网络可直连。
+
+### 国外工具
+
+| 目标 id | 助手 | 全局目录 | 项目内目录 |
+| --- | --- | --- | --- |
 | `claude` | Claude Code | `~/.claude/skills` | `.claude/skills` |
 | `codex` | Codex CLI | `~/.codex/skills` | `.codex/skills` |
-| `openclaw` | OpenClaw | `~/.openclaw/workspace/skills` | `.openclaw/skills` |
-| `qwen` | Qwen Code | `~/.qwen/skills` | `.qwen/skills` |
-| `cc-switch` | cc-switch | `~/.cc-switch/skills` | `.cc-switch/skills` |
 | `cursor` | Cursor | `~/.cursor/skills` | `.cursor/skills` |
 | `agents` | 通用 Agent 标准 | `~/.agents/skills` | `.agents/skills` |
 
-不加参数装全局目录（所有项目可用），加 `--project` 装当前项目的相对目录（适合随项目提交、团队共享）。
+这几个在国内使用通常需要外网环境。
+
+不加参数装全局目录（所有项目可用）；加 `--project` 装当前项目的相对目录，适合随项目提交、团队共享。
+
+### 国内网络注意事项
+
+安装器本身只在本机读写文件，不联网。真正受网络影响的是仓库里的演示页与外部资源：
+
+| 事项 | 情况 |
+| --- | --- |
+| 演示页主源 | `assets/chat_template.html` 与 `assets/index.html` 的 marked、highlight.js、DOMPurify 主源是 `cdnjs.cloudflare.com`，国内经常超时。**已在页面里内置 BootCDN 回退**，主源失败会自动换源，不需要手动改 |
+| KaTeX / Mermaid | 国内暂无等价镜像，加载不到时页面会提示「缺少依赖」，不影响其余功能 |
+| 自检 | `python scripts/diagnose_encoding.py --deps` 可以测这几个源在你的网络下是否可达 |
+| 诊断脚本 | 只用 Python 标准库，不联网（`--deps` 与 `--real-sse` 除外） |
 
 ### 作为插件安装
 
@@ -184,8 +205,8 @@ node tools/install.mjs --ai all        # 一次装到全部
 
 | 助手 | 清单位置 | 装法 |
 | --- | --- | --- |
-| Claude Code | `.claude-plugin/` | `/plugin marketplace add YardonYan/markdown-renderer-fix` 后 `/plugin install markdown-renderer-fix@YardonYan-markdown-renderer-fix` |
 | WorkBuddy / CodeBuddy | `.codebuddy-plugin/` | 在插件管理的市场设置里添加本仓库路径或地址 |
+| Claude Code | `.claude-plugin/` | `/plugin marketplace add YardonYan/markdown-renderer-fix` 后 `/plugin install markdown-renderer-fix@YardonYan-markdown-renderer-fix` |
 | Codex | `.codex-plugin/` | 按 Codex 的插件安装流程指向本仓库 |
 | Cursor | `.cursor-plugin/` | `/add-plugin` 或在插件市场里搜索 |
 
@@ -200,7 +221,7 @@ node tools/install.mjs --ai all        # 一次装到全部
 | 网页 IDE（CodeSandbox、StackBlitz、Replit） | 技能是给 AI 助手读的指令文件，不是可运行的应用，这些环境没有对应的加载入口 |
 | 云主机 / 云 Shell（Google Cloud Shell、AWS CloudShell） | 同上。如果只是想跑仓库里的脚本，直接 `git clone` 后照文档执行命令即可，跟技能加载是两回事 |
 | 把仓库 ZIP 直接上传到助手的技能上传框 | 仓库含参考资料与脚本，文件数可能超限；改用安装器或插件市场更稳 |
-| 手机上使用 | 上述助手基本没有移动端 |
+| 手机 | 上述助手基本没有移动端客户端 |
 
 ---
 

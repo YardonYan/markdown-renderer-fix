@@ -32,20 +32,22 @@ const C = process.stdout.isTTY
 
 /**
  * 安装目标表。global 为全局目录，project 为随项目走的相对目录。
- * 这些路径已在本机逐一核对过：带 verified 标记的目录确实存在且装有技能。
+ * region: cn = 国内工具，intl = 国外工具 —— 列表与文档按此分组，国内排前面。
+ * verified: 该目录已在本机确认存在；qoder 尚无技能落盘，按官方约定填写。
  * 新增 AI 应用时只改这里。
  */
 const TARGETS = {
-  workbuddy: { label: 'WorkBuddy', global: '~/.workbuddy/skills', project: '.workbuddy/skills', verified: true },
-  'trae-cn': { label: 'TRAE 国内版', global: '~/.trae-cn/skills', project: '.trae-cn/skills', verified: true },
-  codebuddy: { label: 'CodeBuddy', global: '~/.codebuddy/skills', project: '.codebuddy/skills', verified: true },
-  claude: { label: 'Claude Code', global: '~/.claude/skills', project: '.claude/skills', verified: true },
-  codex: { label: 'Codex CLI', global: '~/.codex/skills', project: '.codex/skills', verified: true },
-  openclaw: { label: 'OpenClaw', global: '~/.openclaw/workspace/skills', project: '.openclaw/skills', verified: true },
-  qwen: { label: 'Qwen Code', global: '~/.qwen/skills', project: '.qwen/skills', verified: true },
-  'cc-switch': { label: 'cc-switch', global: '~/.cc-switch/skills', project: '.cc-switch/skills', verified: true },
-  cursor: { label: 'Cursor', global: '~/.cursor/skills', project: '.cursor/skills', verified: false },
-  agents: { label: '通用 .agents', global: '~/.agents/skills', project: '.agents/skills', verified: false },
+  workbuddy: { label: 'WorkBuddy', global: '~/.workbuddy/skills', project: '.workbuddy/skills', region: 'cn', verified: true },
+  codebuddy: { label: 'CodeBuddy', global: '~/.codebuddy/skills', project: '.codebuddy/skills', region: 'cn', verified: true },
+  'trae-cn': { label: 'TRAE 国内版', global: '~/.trae-cn/skills', project: '.trae-cn/skills', region: 'cn', verified: true },
+  qoder: { label: 'Qoder', global: '~/.qoder-cn/skills', project: '.qoder/skills', region: 'cn', verified: false },
+  qwen: { label: 'Qwen Code', global: '~/.qwen/skills', project: '.qwen/skills', region: 'cn', verified: true },
+  openclaw: { label: 'OpenClaw', global: '~/.openclaw/workspace/skills', project: '.openclaw/skills', region: 'cn', verified: true },
+  'cc-switch': { label: 'cc-switch', global: '~/.cc-switch/skills', project: '.cc-switch/skills', region: 'cn', verified: true },
+  claude: { label: 'Claude Code', global: '~/.claude/skills', project: '.claude/skills', region: 'intl', verified: true },
+  codex: { label: 'Codex CLI', global: '~/.codex/skills', project: '.codex/skills', region: 'intl', verified: true },
+  cursor: { label: 'Cursor', global: '~/.cursor/skills', project: '.cursor/skills', region: 'intl', verified: false },
+  agents: { label: '通用 .agents', global: '~/.agents/skills', project: '.agents/skills', region: 'intl', verified: false },
 };
 
 /** 不复制的内容：版本控制、依赖、缓存、编辑器产物。 */
@@ -127,18 +129,30 @@ function list() {
   const meta = readSkillMeta();
   console.log(`\n技能: ${C.b}${meta.name}${C.x}${meta.version ? `  v${meta.version}` : ''}`);
   console.log(`源目录: ${REPO_ROOT}`);
-  console.log('\n可安装到的目标:\n');
-  console.log('  id          应用                全局目录                                       已在本机核对');
-  console.log('  ' + '-'.repeat(88));
-  for (const [id, t] of Object.entries(TARGETS)) {
-    const mark = t.verified ? `${C.g}是${C.x}` : `${C.y}否${C.x}`;
-    const pad = ' '.repeat(Math.max(0, 12 - id.length));
-    const label = t.label + ' '.repeat(Math.max(0, 18 - t.label.length - (t.label.match(/[\u4e00-\u9fa5]/g)?.length || 0)));
-    const dir = t.global + ' '.repeat(Math.max(0, 46 - t.global.length));
-    console.log(`  ${id}${pad}${label}${dir}${mark}`);
+
+  const groups = [
+    ['cn', '国内工具'],
+    ['intl', '国外工具（部分需要外网环境）'],
+  ];
+  for (const [region, title] of groups) {
+    const entries = Object.entries(TARGETS).filter(([, t]) => t.region === region);
+    if (!entries.length) continue;
+    console.log(`\n${title}:\n`);
+    console.log('  id          应用                全局目录                                       已在本机核对');
+    console.log('  ' + '-'.repeat(88));
+    for (const [id, t] of entries) {
+      const mark = t.verified ? `${C.g}是${C.x}` : `${C.y}否${C.x}`;
+      const cjk = (s) => (s.match(/[\u4e00-\u9fa5]/g) || []).length;
+      const pad = ' '.repeat(Math.max(0, 12 - id.length));
+      const label = t.label + ' '.repeat(Math.max(0, 18 - t.label.length - cjk(t.label)));
+      const dir = t.global + ' '.repeat(Math.max(0, 46 - t.global.length));
+      console.log(`  ${id}${pad}${label}${dir}${mark}`);
+    }
   }
-  console.log(`\n  加 --project 则改为装到当前项目下的相对目录（如 ${Object.values(TARGETS)[0].project}）`);
-  console.log(`  未核对的目标填的是该应用的通行约定，装之前建议先确认目录确实存在\n`);
+
+  console.log(`\n  加 --project 则改为装到当前项目下的相对目录（如 ${TARGETS.workbuddy.project}）`);
+  console.log('  标「否」的是该工具的通行约定，本机还没装过技能，装之前建议先确认目录存在');
+  console.log('  Qoder 装完需要 /skills reload 或重启会话才会识别\n');
 }
 
 function copyFilter(src) {

@@ -182,7 +182,7 @@ Without a flag it installs globally (available to every project); add `--project
 
 ### Installing as a plugin
 
-The repository root carries three sets of plugin manifests, so a supporting assistant can install it directly instead of copying directories:
+The repository root carries four sets of plugin manifests, so a supporting assistant can install it directly instead of copying directories:
 
 | Assistant | Manifest | How |
 | --- | --- | --- |

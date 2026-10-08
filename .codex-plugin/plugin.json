@@ -1,0 +1,37 @@
+{
+  "name": "markdown-renderer-fix",
+  "version": "3.0.0",
+  "description": "[v3.",
+  "author": {
+    "name": "Yardon",
+    "url": "https://github.com/YardonYan"
+  },
+  "homepage": "https://github.com/YardonYan/markdown-renderer-fix",
+  "repository": "https://github.com/YardonYan/markdown-renderer-fix",
+  "license": "Apache-2.0",
+  "keywords": [
+    "agent-skill",
+    "ai-skill",
+    "markdown-renderer-fix"
+  ],
+  "skills": "./",
+  "hooks": {},
+  "interface": {
+    "displayName": "markdown-renderer-fix",
+    "shortDescription": "[v3.",
+    "longDescription": "[v3.0.0] [EN] Mandatory trigger for Markdown rendering, SSE streaming, Chinese garbled text,",
+    "developerName": "Yardon",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "用 markdown-renderer-fix 处理当前项目里的相关任务",
+      "帮我看看这个项目的代码，用 markdown-renderer-fix 的规则来改"
+    ],
+    "websiteURL": "https://github.com/YardonYan/markdown-renderer-fix",
+    "screenshots": [],
+    "logo": "./assets/hero.png"
+  }
+}

@@ -1,17 +1,20 @@
 {
   "name": "markdown-renderer-fix",
-  "version": "3.0.0",
+  "displayName": "markdown-renderer-fix",
   "description": "[v3.",
+  "version": "3.0.0",
   "author": {
     "name": "Yardon",
     "url": "https://github.com/YardonYan"
   },
-  "license": "Apache-2.0",
   "homepage": "https://github.com/YardonYan/markdown-renderer-fix",
   "repository": "https://github.com/YardonYan/markdown-renderer-fix",
+  "license": "Apache-2.0",
   "keywords": [
     "agent-skill",
     "ai-skill",
     "markdown-renderer-fix"
-  ]
+  ],
+  "skills": "./",
+  "hooks": {}
 }

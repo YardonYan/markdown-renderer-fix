@@ -25,6 +25,7 @@
 - [Screenshots](#screenshots)
 - [What This Is](#what-this-is)
 - [Quick Start](#quick-start)
+- [Ways to use it](#ways-to-use-it)
 - [Diagnostic Command](#diagnostic-command)
 - [Documentation](#documentation)
 - [Release Highlights](#release-highlights)
@@ -146,6 +147,65 @@ python scripts/diagnose_encoding.py --full
 
 <a id="diagnostic-command"></a>
 
+## Ways to use it
+
+How you install this depends on which AI assistant you use. Installing into several on the same machine is fine — they do not conflict.
+
+### One command, any assistant
+
+The repo ships a zero-dependency installer, so there is no manual directory copying:
+
+```bash
+git clone https://github.com/YardonYan/markdown-renderer-fix.git
+cd markdown-renderer-fix
+node tools/install.mjs --list          # list the targets available on this machine
+node tools/install.mjs --ai workbuddy  # install into one
+node tools/install.mjs --ai all        # install into all of them
+```
+
+### Where each assistant looks
+
+| Target id | Assistant | Global directory | Per-project directory |
+| --- | --- | --- | --- |
+| `workbuddy` | WorkBuddy | `~/.workbuddy/skills` | `.workbuddy/skills` |
+| `trae-cn` | TRAE China edition | `~/.trae-cn/skills` | `.trae-cn/skills` |
+| `codebuddy` | CodeBuddy | `~/.codebuddy/skills` | `.codebuddy/skills` |
+| `claude` | Claude Code | `~/.claude/skills` | `.claude/skills` |
+| `codex` | Codex CLI | `~/.codex/skills` | `.codex/skills` |
+| `openclaw` | OpenClaw | `~/.openclaw/workspace/skills` | `.openclaw/skills` |
+| `qwen` | Qwen Code | `~/.qwen/skills` | `.qwen/skills` |
+| `cc-switch` | cc-switch | `~/.cc-switch/skills` | `.cc-switch/skills` |
+| `cursor` | Cursor | `~/.cursor/skills` | `.cursor/skills` |
+| `agents` | Generic agent standard | `~/.agents/skills` | `.agents/skills` |
+
+Without a flag it installs globally (available to every project); add `--project` to install into relative directories inside the current project, which suits committing it alongside the code.
+
+### Installing as a plugin
+
+The repository root carries three sets of plugin manifests, so a supporting assistant can install it directly instead of copying directories:
+
+| Assistant | Manifest | How |
+| --- | --- | --- |
+| Claude Code | `.claude-plugin/` | `/plugin marketplace add YardonYan/markdown-renderer-fix` then `/plugin install markdown-renderer-fix@YardonYan-markdown-renderer-fix` |
+| WorkBuddy / CodeBuddy | `.codebuddy-plugin/` | Add this repository path or URL under marketplace settings |
+| Codex | `.codex-plugin/` | Follow Codex's plugin install flow, pointing at this repository |
+| Cursor | `.cursor-plugin/` | `/add-plugin`, or search the plugin marketplace |
+
+The field names and values follow the manifests shipped inside each assistant — this is not a format of my own invention. **The manifest files were checked field by field; the register-and-load flow has not been verified end to end.** Where you register it depends on the version you have.
+
+### Where it does not apply
+
+A few environments get asked about but have no mechanism for this. Listed here so nobody wastes time:
+
+| Environment | Situation |
+| --- | --- |
+| Browser IDEs (CodeSandbox, StackBlitz, Replit) | A skill is an instruction file for an AI assistant, not a runnable app — these environments have no entry point for loading one |
+| Cloud shells (Google Cloud Shell, AWS CloudShell) | Same as above. If you only want to run the repo's scripts, `git clone` and run the documented commands; that is unrelated to skill loading |
+| Uploading the repository ZIP to an assistant's skill upload dialog | The repo includes references and scripts, which may exceed file-count limits; the installer or a plugin marketplace is more reliable |
+| Mobile | The assistants above have no meaningful mobile client |
+
+---
+
 ## Diagnostic Command
 
 ```bash
@@ -238,6 +298,8 @@ See [CHANGELOG.md](CHANGELOG.md).
 markdown-renderer-fix/
 ├── SKILL.md                      # Core skill instructions: decision tree + quick-fix table
 ├── .codebuddy-plugin/              Plugin manifests (WorkBuddy / CodeBuddy)
+├── .codex-plugin/                  Plugin manifest (Codex)
+├── .cursor-plugin/                 Plugin manifest (Cursor)
 ├── .claude-plugin/                 Plugin manifests (Claude Code)
 ├── README.md                     # Chinese README
 ├── README.en.md                  # English README (this file)

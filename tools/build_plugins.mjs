@@ -58,8 +58,9 @@ function readMeta(dir) {
     if (block) desc = block[1].split(/\r?\n/).map((l) => l.trim()).filter(Boolean).join(' ');
   }
   // 只取第一句，插件清单里放太长。
-  desc = desc.split(/(?<=[。.])\s/)[0]?.trim() || desc.trim();
-  if (desc.length > 220) desc = desc.slice(0, 217).trimEnd() + '...';
+  const full = desc.trim();
+  const first = full.split(/(?<=[。.])\s?/)[0]?.trim() || full;
+  desc = first.length > 160 ? first.slice(0, 157).trimEnd() + '...' : first;
 
   let version = '';
   const pkg = path.join(dir, 'package.json');
@@ -78,7 +79,27 @@ function readMeta(dir) {
   }
   if (!version) version = '1.0.0';
 
-  return { name, description: desc, version };
+  return { name, description: desc, longDescription: full, version, dir, prompts: readPrompts(dir, name) };
+}
+
+/**
+ * 从 README 的「示例提示 / Example Prompts」小节取前两条，作为 Codex 的 defaultPrompt。
+ * 取不到就用一句由技能名拼出的通用提示，不留空数组。
+ */
+function readPrompts(dir, name) {
+  const readme = path.join(dir, 'README.md');
+  if (fs.existsSync(readme)) {
+    const text = fs.readFileSync(readme, 'utf8');
+    const sec = text.match(/^##\s*(?:示例提示|Example Prompts)\s*$([\s\S]*?)(?=^##\s|\Z)/m);
+    if (sec) {
+      const items = [...sec[1].matchAll(/^[-*]\s+[「"']?(.+?)[」"']?\s*$/gm)]
+        .map((m) => m[1].replace(/[。.]$/, '').trim())
+        .filter((s) => s.length > 4 && s.length < 120);
+      if (items.length >= 2) return items.slice(0, 2);
+      if (items.length === 1) return [items[0], `用 ${name} 处理当前项目里的相关任务`];
+    }
+  }
+  return [`用 ${name} 处理当前项目里的相关任务`, `帮我看看这个项目的代码，用 ${name} 的规则来改`];
 }
 
 function pluginManifest(meta, dir) {
@@ -93,6 +114,74 @@ function pluginManifest(meta, dir) {
     category: 'skill',
     keywords: ['agent-skill', 'ai-skill', meta.name],
   };
+}
+
+/** Claude Code：字段与 CodeBuddy 基本一致，不需要 skills 字段（市场清单里指）。 */
+function claudeManifest(meta, dir) {
+  const m = pluginManifest(meta, dir);
+  delete m.category;
+  return m;
+}
+
+/**
+ * Codex：在通用字段之外多了 skills 路径与 interface 展示块。
+ * 字段结构照 obra/superpowers 的 .codex-plugin/plugin.json 写。
+ * 没有品牌色与图标资源就不填，不编造。
+ */
+function codexManifest(meta, dir) {
+  const repo = `https://github.com/YardonYan/${path.basename(dir)}`;
+  const logo = findLogo(dir);
+  const iface = {
+    displayName: meta.name,
+    shortDescription: meta.description,
+    longDescription: meta.longDescription,
+    developerName: 'Yardon',
+    category: 'Developer Tools',
+    capabilities: ['Read', 'Write'],
+    defaultPrompt: meta.prompts,
+    websiteURL: repo,
+    screenshots: [],
+  };
+  if (logo) iface.logo = logo;
+  return {
+    name: meta.name,
+    version: meta.version,
+    description: meta.description,
+    author: { name: 'Yardon', url: 'https://github.com/YardonYan' },
+    homepage: repo,
+    repository: repo,
+    license: 'Apache-2.0',
+    keywords: ['agent-skill', 'ai-skill', meta.name],
+    skills: './',
+    hooks: {},
+    interface: iface,
+  };
+}
+
+/** Cursor：多了 displayName、skills 与 hooks 三个字段。 */
+function cursorManifest(meta) {
+  const repo = `https://github.com/YardonYan/${path.basename(meta.dir)}`;
+  return {
+    name: meta.name,
+    displayName: meta.name,
+    description: meta.description,
+    version: meta.version,
+    author: { name: 'Yardon', url: 'https://github.com/YardonYan' },
+    homepage: repo,
+    repository: repo,
+    license: 'Apache-2.0',
+    keywords: ['agent-skill', 'ai-skill', meta.name],
+    skills: './',
+    hooks: {},
+  };
+}
+
+/** 仓库里已有的配图，用作插件图标。没有就返回 null，不编造路径。 */
+function findLogo(dir) {
+  for (const p of ['assets/hero.png', 'assets/dag-waves.png', 'assets/architecture.png']) {
+    if (fs.existsSync(path.join(dir, p))) return './' + p;
+  }
+  return null;
 }
 
 function marketplaceManifest(meta, dir) {
@@ -136,8 +225,10 @@ for (const dir of repos) {
   const results = [
     write(dir, path.join('.codebuddy-plugin', 'plugin.json'), pluginManifest(meta, dir)),
     write(dir, path.join('.codebuddy-plugin', 'marketplace.json'), marketplaceManifest(meta, dir)),
-    write(dir, path.join('.claude-plugin', 'plugin.json'), pluginManifest(meta, dir)),
+    write(dir, path.join('.claude-plugin', 'plugin.json'), claudeManifest(meta, dir)),
     write(dir, path.join('.claude-plugin', 'marketplace.json'), marketplaceManifest(meta, dir)),
+    write(dir, path.join('.codex-plugin', 'plugin.json'), codexManifest(meta, dir)),
+    write(dir, path.join('.cursor-plugin', 'plugin.json'), cursorManifest(meta)),
   ];
   const changed = results.filter((r) => r.changed).length;
   changedTotal += changed;

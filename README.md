@@ -25,6 +25,7 @@
 - [效果预览](#效果预览)
 - [这是什么](#这是什么)
 - [快速开始](#快速开始)
+- [使用途径](#使用途径)
 - [快速诊断命令](#快速诊断命令)
 - [文档导航](#文档导航)
 - [版本亮点](#版本亮点)
@@ -144,6 +145,65 @@ python scripts/diagnose_encoding.py --full
 
 <a id="快速诊断命令"></a>
 
+## 使用途径
+
+使用方式取决于你用哪个 AI 助手。同一台机器上装到多个助手是允许的，互相不冲突。
+
+### 一条命令装到任意助手
+
+仓库自带零依赖安装器，不用手工拷贝目录：
+
+```bash
+git clone https://github.com/YardonYan/markdown-renderer-fix.git
+cd markdown-renderer-fix
+node tools/install.mjs --list          # 看本机有哪些目标可选
+node tools/install.mjs --ai workbuddy  # 装到某一个
+node tools/install.mjs --ai all        # 一次装到全部
+```
+
+### 各助手对应的目录
+
+| 目标 id | 助手 | 全局目录 | 项目内目录 |
+| --- | --- | --- | --- |
+| `workbuddy` | WorkBuddy | `~/.workbuddy/skills` | `.workbuddy/skills` |
+| `trae-cn` | TRAE 国内版 | `~/.trae-cn/skills` | `.trae-cn/skills` |
+| `codebuddy` | CodeBuddy | `~/.codebuddy/skills` | `.codebuddy/skills` |
+| `claude` | Claude Code | `~/.claude/skills` | `.claude/skills` |
+| `codex` | Codex CLI | `~/.codex/skills` | `.codex/skills` |
+| `openclaw` | OpenClaw | `~/.openclaw/workspace/skills` | `.openclaw/skills` |
+| `qwen` | Qwen Code | `~/.qwen/skills` | `.qwen/skills` |
+| `cc-switch` | cc-switch | `~/.cc-switch/skills` | `.cc-switch/skills` |
+| `cursor` | Cursor | `~/.cursor/skills` | `.cursor/skills` |
+| `agents` | 通用 Agent 标准 | `~/.agents/skills` | `.agents/skills` |
+
+不加参数装全局目录（所有项目可用），加 `--project` 装当前项目的相对目录（适合随项目提交、团队共享）。
+
+### 作为插件安装
+
+仓库根目录带三套插件清单，可以直接被支持插件市场的助手装走，不需要手工拷目录：
+
+| 助手 | 清单位置 | 装法 |
+| --- | --- | --- |
+| Claude Code | `.claude-plugin/` | `/plugin marketplace add YardonYan/markdown-renderer-fix` 后 `/plugin install markdown-renderer-fix@YardonYan-markdown-renderer-fix` |
+| WorkBuddy / CodeBuddy | `.codebuddy-plugin/` | 在插件管理的市场设置里添加本仓库路径或地址 |
+| Codex | `.codex-plugin/` | 按 Codex 的插件安装流程指向本仓库 |
+| Cursor | `.cursor-plugin/` | `/add-plugin` 或在插件市场里搜索 |
+
+清单的字段名与取值是照着各助手自带的插件清单写的，不是自己发明的格式。**清单文件已逐字段对照核对；插件市场的注册与加载端到端流程未做验证**，入口以你所装版本的界面为准。
+
+### 不适用这些场景
+
+有几种环境问了但没有对应机制，说明如下，免得白折腾：
+
+| 场景 | 情况 |
+| --- | --- |
+| 网页 IDE（CodeSandbox、StackBlitz、Replit） | 技能是给 AI 助手读的指令文件，不是可运行的应用，这些环境没有对应的加载入口 |
+| 云主机 / 云 Shell（Google Cloud Shell、AWS CloudShell） | 同上。如果只是想跑仓库里的脚本，直接 `git clone` 后照文档执行命令即可，跟技能加载是两回事 |
+| 把仓库 ZIP 直接上传到助手的技能上传框 | 仓库含参考资料与脚本，文件数可能超限；改用安装器或插件市场更稳 |
+| 手机上使用 | 上述助手基本没有移动端 |
+
+---
+
 ## 快速诊断命令
 
 ```bash
@@ -234,6 +294,8 @@ python scripts/diagnose_encoding.py --test-text "你好世界" --full
 markdown-renderer-fix/
 ├── SKILL.md                      # 核心技能指令：决策树 + 快速修复表
 ├── .codebuddy-plugin/              插件清单（WorkBuddy / CodeBuddy）
+├── .codex-plugin/                  插件清单（Codex）
+├── .cursor-plugin/                 插件清单（Cursor）
 ├── .claude-plugin/                 插件清单（Claude Code）
 ├── README.md                     # 中文说明（本文件）
 ├── README.en.md                  # English README

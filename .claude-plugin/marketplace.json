@@ -1,6 +1,6 @@
 {
   "name": "markdown-renderer-fix",
-  "description": "[v3.0.0] [EN] Mandatory trigger for Markdown rendering, SSE streaming, Chinese garbled text, (single-plugin marketplace)",
+  "description": "[v3. (single-plugin marketplace)",
   "owner": {
     "name": "Yardon",
     "url": "https://github.com/YardonYan"
@@ -12,7 +12,7 @@
     {
       "name": "markdown-renderer-fix",
       "source": "./",
-      "description": "[v3.0.0] [EN] Mandatory trigger for Markdown rendering, SSE streaming, Chinese garbled text,",
+      "description": "[v3.",
       "version": "3.0.0",
       "category": "skill"
     }

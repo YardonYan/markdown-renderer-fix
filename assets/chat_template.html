@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" onerror="window.HLJS_FAIL=true">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" onerror="this.onerror=null;this.href='https://cdn.bootcdn.net/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css'">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js" onerror="window.MARKED_FAIL=true"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" onerror="window.HLJS_FAIL=true"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.0/purify.min.js" onerror="window.PURIFY_FAIL=true"></script>
@@ -15,6 +15,31 @@
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" onerror="window.KATEX_FAIL=true"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onerror="window.KATEX_FAIL=true"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js" onerror="window.MERMAID_FAIL=true"></script>
+<script>
+/* 国内 CDN 回退。
+   cdnjs.cloudflare.com 与 cdn.jsdelivr.net 在国内经常超时，国内用户直接打开这个页面
+   会看到「缺少依赖」的提示。这里按 references/browser_support.md 的国内镜像表补一层回退：
+   marked / highlight.js / DOMPurify 走 BootCDN，KaTeX 与 Mermaid 国内暂无等价镜像，保持原源。
+
+   为什么用 document.write 而不是动态插 script：同步 <script src> 加载失败时，error 事件
+   在解析器继续之前就触发了，所以走到这里 flag 一定已置位；document.write 在解析期插入是
+   同步阻塞的，能保证应用代码运行时依赖已就位。动态 append 是异步的，应用代码会先跑起来
+   拿到 undefined。 */
+(function () {
+  var B = 'https://cdn.bootcdn.net/ajax/libs/';
+  /* 回退成功后必须清掉失败标记，否则页面的依赖自检仍会把它们报成缺失。 */
+  if (window.MARKED_FAIL) {
+    document.write('<script src="' + B + 'marked/12.0.1/marked.min.js" onload="window.MARKED_FAIL=false"><\/script>');
+  }
+  if (window.HLJS_FAIL) {
+    document.write('<link rel="stylesheet" href="' + B + 'highlight.js/11.9.0/styles/github-dark.min.css">');
+    document.write('<script src="' + B + 'highlight.js/11.9.0/highlight.min.js" onload="window.HLJS_FAIL=false"><\/script>');
+  }
+  if (window.PURIFY_FAIL) {
+    document.write('<script src="' + B + 'dompurify/3.0.6/purify.min.js" onload="window.PURIFY_FAIL=false"><\/script>');
+  }
+})();
+</script>
 <style>
     /* ═══════════════════════ 6-Token Design System v3.0 ═══════════════════════ */
     :root {

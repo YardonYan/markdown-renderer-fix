@@ -7,13 +7,29 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" onerror="this.onerror=null;this.href='https://cdn.bootcdn.net/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css'">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js" onerror="window.MARKED_FAIL=true"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" onerror="window.HLJS_FAIL=true"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" onerror="window.KATEX_FAIL=true">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" onerror="window.KATEX_FAIL=true"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onerror="window.KATEX_FAIL=true"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js" onerror="window.MERMAID_FAIL=true"></script>
+<script>
+/* 国内 CDN 回退。cdnjs.cloudflare.com 在国内经常超时，回退到 BootCDN；
+   KaTeX 与 Mermaid 国内暂无等价镜像，保持原源。
+   详见 references/browser_support.md 的「国内 CDN 镜像推荐」。 */
+(function () {
+  var B = 'https://cdn.bootcdn.net/ajax/libs/';
+  /* 回退成功后清掉失败标记，避免依赖自检误报。 */
+  if (window.MARKED_FAIL) {
+    document.write('<script src="' + B + 'marked/12.0.1/marked.min.js" onload="window.MARKED_FAIL=false"><\/script>');
+  }
+  if (window.HLJS_FAIL) {
+    document.write('<link rel="stylesheet" href="' + B + 'highlight.js/11.9.0/styles/github-dark.min.css">');
+    document.write('<script src="' + B + 'highlight.js/11.9.0/highlight.min.js" onload="window.HLJS_FAIL=false"><\/script>');
+  }
+})();
+</script>
 <style>
 :root {
   /* ═══════════════════════ 6-Token Design System v3.0 ═══════════════════════ */

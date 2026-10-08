@@ -21,13 +21,15 @@
 
 ## 目录
 
-- [为什么需要](#为什么需要)
+- [为什么需要这个 Skill](#为什么需要这个-skill)
 - [效果预览](#效果预览)
 - [这是什么](#这是什么)
 - [快速开始](#快速开始)
 - [快速诊断命令](#快速诊断命令)
 - [文档导航](#文档导航)
 - [版本亮点](#版本亮点)
+- [文件结构](#文件结构)
+- [排错](#排错)
 - [贡献](#贡献)
 - [许可证](#许可证)
 
@@ -95,10 +97,36 @@ SSE 流式 + 中文文本 + Markdown 渲染，看着简单，实际要穿过前�
 
 > 在线演示：[GitHub Pages Demo](https://yardonyan.github.io/markdown-renderer-fix/)
 
+### 用安装器（推荐）
+
+仓库自带一个零依赖的安装脚本，装到本机各个 AI 应用的 skills 目录：
+
 ```bash
-# 1. 克隆到技能目录
+node tools/install.mjs --list                 # 看有哪些目标可选
+node tools/install.mjs --ai workbuddy         # 装到 WorkBuddy
+node tools/install.mjs --ai all               # 装到全部目标
+node tools/install.mjs --ai all --dry-run     # 只预览，不写文件
+```
+
+已核对存在的目标：WorkBuddy、TRAE 国内版、CodeBuddy、Claude Code、Codex CLI、OpenClaw、Qwen Code、cc-switch。
+
+### 作为插件安装（WorkBuddy / CodeBuddy / Claude Code）
+
+仓库根目录带 `.codebuddy-plugin/` 与 `.claude-plugin/` 两份清单，可以直接注册成一个「单插件市场」，在应用里按插件方式安装，不用手工拷目录。
+
+清单的字段名与取值是照着应用自带的插件清单写的，不是自己发明的格式。**文件格式已逐字段对照应用自带的市场核对；注册与加载的端到端流程未做验证**，注册入口以你所装版本的界面为准。
+
+改过 `SKILL.md` 的 name 或版本号之后重新生成：
+
+```bash
+node tools/build_plugins.mjs .
+```
+
+### 手工使用
+
+```bash
+# 1. 克隆
 git clone https://github.com/YardonYan/markdown-renderer-fix.git
-cp -r markdown-renderer-fix ~/.qclaw/skills/
 
 # 2. 本地预览 chat_template.html（需 HTTP 服务器，不支持 file:// 直接打开）
 cd markdown-renderer-fix/assets
@@ -205,6 +233,8 @@ python scripts/diagnose_encoding.py --test-text "你好世界" --full
 ```
 markdown-renderer-fix/
 ├── SKILL.md                      # 核心技能指令：决策树 + 快速修复表
+├── .codebuddy-plugin/              插件清单（WorkBuddy / CodeBuddy）
+├── .claude-plugin/                 插件清单（Claude Code）
 ├── README.md                     # 中文说明（本文件）
 ├── README.en.md                  # English README
 ├── CHANGELOG.md                  # 版本历史
@@ -223,8 +253,65 @@ markdown-renderer-fix/
 ├── scripts/
 │   └── diagnose_encoding.py      # 编码健康检查脚本
 └── tools/
-    └── gen_readme_images.py      # 生成 README 配图（Pillow）
+│  ├── gen_readme_images.py      # 生成 README 配图（Pillow）
+│  └── build_plugins.mjs       生成插件清单
 ```
+
+## 排错
+
+### 装好了但对话里没反应
+
+按顺序查三件事：
+
+一、**`SKILL.md` 是否在技能目录的根层。** 正确结构是 `<应用技能目录>/markdown-renderer-fix/SKILL.md`。如果多套了一层目录，应用扫不到。
+
+二、**重启应用。** 多数应用只在启动时扫描技能目录。
+
+三、**确认目录是该应用真正会扫的那个。** 跑 `node tools/install.mjs --list` 看清单。
+
+### 诊断输出 `⚠️ tiktoken 未安装，跳过`
+
+正常，不是错误。这一项只检查 tokenizer 层面的字符往返，缺 `tiktoken` 时脚本跳过它、继续跑其余检查。需要这项结论再装：
+
+```bash
+pip install tiktoken
+```
+
+其余检查（编码环境、`json.dumps` 往返、SSE 链路）不依赖任何第三方库。
+
+### `--deps` 报 `⚠️ HEAD 不可达` 但后面又写着 `GET ✅ HTTP 200`
+
+不是故障。部分 CDN 拒绝 HEAD 请求、只允许 GET，脚本探测时先试 HEAD 失败就会打这条提示，紧接着用 GET 复测通过。只要看到 `GET ✅ HTTP 200`，这个依赖就是可达的。
+
+### 直接双击 `chat_template.html` 打开是空白
+
+它必须通过 HTTP 服务器访问，`file://` 协议下会被浏览器的跨域策略拦住。用：
+
+```bash
+cd assets
+py -m http.server 8080
+# 然后访问 http://localhost:8080/chat_template.html
+```
+
+只是想看渲染效果的话，`assets/index.html` 可以直接双击打开，它没有这个限制。
+
+### 文档里的脚本路径和我实际装的位置不一样
+
+文档里写的是 `.claude/skills/`，因为你用的是 Claude Code。换别的应用要换前缀：
+
+| 应用 | 路径前缀 |
+|------|----------|
+| Claude Code | `.claude/skills/` |
+| Continue | `.continue/skills/` |
+| Droid (Factory) | `.factory/skills/` |
+| ZCode | `.zcode/skills/` |
+| 通用 | `.agents/skills/` |
+
+不确定装到哪了，跑 `node tools/install.mjs --list` 看全局目录。
+
+### 按文档改完还是有乱码
+
+乱码可能出现在 8 个阶段的任何一环，改错地方就不会有效果。按链路顺序定位：先跑 `--full` 看哪一项失败，再对照 `references/troubleshooting.md` 的六步逐层排查手册，不要跳着改。
 
 ---
 

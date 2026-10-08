@@ -29,6 +29,7 @@
 - [Documentation](#documentation)
 - [Release Highlights](#release-highlights)
 - [File Structure](#file-structure)
+- [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -98,10 +99,36 @@ An **AI Skill** — a reusable instruction module that OpenClaw loads automatica
 
 > Live demo: [GitHub Pages Demo](https://yardonyan.github.io/markdown-renderer-fix/)
 
+### Using the installer (recommended)
+
+The repo ships a zero-dependency installer that copies the skill into the skills directory of each AI app on your machine:
+
 ```bash
-# 1. Clone into your skills directory
+node tools/install.mjs --list                 # list available targets
+node tools/install.mjs --ai workbuddy         # install into WorkBuddy
+node tools/install.mjs --ai all               # every target
+node tools/install.mjs --ai all --dry-run     # preview only, writes nothing
+```
+
+Targets verified to exist on a real machine: WorkBuddy, TRAE China edition, CodeBuddy, Claude Code, Codex CLI, OpenClaw, Qwen Code, cc-switch.
+
+### Installing as a plugin (WorkBuddy / CodeBuddy / Claude Code)
+
+The repository root carries `.codebuddy-plugin/` and `.claude-plugin/` manifests, so it can be registered directly as a single-plugin marketplace and installed as a plugin rather than by copying directories.
+
+The field names and values follow the manifests shipped inside the apps themselves — this is not a format of my own invention. **The file format was checked field by field against the apps' own bundled marketplaces; the end-to-end register-and-load flow has not been verified.** Where you register it depends on the version you have.
+
+Regenerate the manifests after changing the `name` or version in `SKILL.md`:
+
+```bash
+node tools/build_plugins.mjs .
+```
+
+### Manual use
+
+```bash
+# 1. Clone
 git clone https://github.com/YardonYan/markdown-renderer-fix.git
-cp -r markdown-renderer-fix ~/.qclaw/skills/
 
 # 2. Preview chat_template.html locally (needs an HTTP server; file:// will not work)
 cd markdown-renderer-fix/assets
@@ -210,6 +237,8 @@ See [CHANGELOG.md](CHANGELOG.md).
 ```
 markdown-renderer-fix/
 ├── SKILL.md                      # Core skill instructions: decision tree + quick-fix table
+├── .codebuddy-plugin/              Plugin manifests (WorkBuddy / CodeBuddy)
+├── .claude-plugin/                 Plugin manifests (Claude Code)
 ├── README.md                     # Chinese README
 ├── README.en.md                  # English README (this file)
 ├── CHANGELOG.md                  # Version history
@@ -228,8 +257,63 @@ markdown-renderer-fix/
 ├── scripts/
 │   └── diagnose_encoding.py      # Encoding health-check script
 └── tools/
-    └── gen_readme_images.py      # Generates README images (Pillow)
+│  ├── gen_readme_images.py      # Generates README images (Pillow)
+│  └── build_plugins.mjs       Generates plugin manifests
 ```
+
+## Troubleshooting
+
+### Installed, but the skill never fires
+
+Check three things, in order:
+
+1. **Is `SKILL.md` at the top level of the skill directory?** The correct shape is `<app-skills-dir>/markdown-renderer-fix/SKILL.md`. An extra directory layer hides it from the app.
+2. **Restart the app.** Most apps scan the skills directory only at startup.
+3. **Is that the directory the app actually scans?** Run `node tools/install.mjs --list`.
+
+### The diagnosis prints `⚠️ tiktoken 未安装，跳过`
+
+That is a normal skip, not an error. This check only validates character round-trips at the tokenizer level; without `tiktoken` installed the script skips it and continues with everything else. Install it if you want that result:
+
+```bash
+pip install tiktoken
+```
+
+The remaining checks (encoding environment, `json.dumps` round-trip, SSE chain) need no third-party packages.
+
+### `--deps` reports `⚠️ HEAD 不可达` but then `GET ✅ HTTP 200`
+
+Not a failure. Some CDNs reject HEAD requests and allow only GET. The probe tries HEAD first, prints that warning when it fails, then immediately retries with GET and succeeds. As long as you see `GET ✅ HTTP 200`, the dependency is reachable.
+
+### Opening `chat_template.html` directly shows a blank page
+
+It must be served over HTTP; under the `file://` protocol the browser's cross-origin policy blocks it. Use:
+
+```bash
+cd assets
+py -m http.server 8080
+# then open http://localhost:8080/chat_template.html
+```
+
+If you only want to see the rendering, `assets/index.html` opens by double-click with no such restriction.
+
+### The script path in the docs does not match where I installed it
+
+The docs use `.claude/skills/` because that is the Claude Code layout. Other apps need a different prefix:
+
+| App | Path prefix |
+|-----|-------------|
+| Claude Code | `.claude/skills/` |
+| Continue | `.continue/skills/` |
+| Droid (Factory) | `.factory/skills/` |
+| ZCode | `.zcode/skills/` |
+| Universal | `.agents/skills/` |
+
+If you are unsure where it landed, run `node tools/install.mjs --list` to see the global directories.
+
+### Garbled text persists after applying the fixes
+
+Garbling can originate at any of the 8 stages, so fixing the wrong one changes nothing. Work along the chain: run `--full` first to see which check fails, then follow the six-step handbook in `references/troubleshooting.md`. Do not skip around.
 
 ---
 

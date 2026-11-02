@@ -402,6 +402,26 @@ Garbling can originate at any of the 8 stages, so fixing the wrong one changes n
 
 <a id="contributing"></a>
 
+### SVG gets `hidden` and stays on screen
+
+Setting `svg.hidden = true` does nothing useful: SVG elements do not honour the HTML hidden property, the attribute just sits there as a plain value.
+
+Use attribute operations instead, and keep a CSS fallback:
+
+```js
+svg.toggleAttribute('hidden', true);
+```
+
+```css
+[hidden] { display: none !important; }
+```
+
+Verify by what the page actually shows, not by reading the JavaScript property. Cover both the first and the second display, since these bugs tend to show up only the second time.
+
+### Two frozen frames differ in bytes but not in pixels
+
+Comparing encoded bytes catches compression settings and metadata, not visual change. Decode both to the same channel layout and compare pixels. Keep visual gates separate from interaction assertions instead of loosening the visual check to get a pass.
+
 ## Contributing
 
 Bug reports, feature requests, and PRs are all welcome.
